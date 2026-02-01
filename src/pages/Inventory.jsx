@@ -115,6 +115,7 @@ export function Inventory() {
     const [editingId, setEditingId] = useState(null)
     const [editValues, setEditValues] = useState({ name: '', price: '', stock: '' })
     const [saving, setSaving] = useState(false)
+    const [translating, setTranslating] = useState(false)
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -246,6 +247,34 @@ export function Inventory() {
 
     const handleEditChange = (field, value) => {
         setEditValues(prev => ({ ...prev, [field]: value }))
+    }
+
+    const translateProductName = async () => {
+        if (!editValues.name || translating) return
+
+        setTranslating(true)
+        try {
+            // MyMemory Translation API (free, no API key required)
+            const response = await fetch(
+                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(editValues.name)}&langpair=en|es`
+            )
+
+            if (!response.ok) throw new Error('Translation API error')
+
+            const data = await response.json()
+
+            if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                // Update the name field with the translation
+                setEditValues(prev => ({ ...prev, name: data.responseData.translatedText }))
+            } else {
+                alert('No se pudo traducir el nombre. Intenta editarlo manualmente.')
+            }
+        } catch (error) {
+            console.error('Translation error:', error)
+            alert('Error al traducir. Verifica tu conexión a internet.')
+        } finally {
+            setTranslating(false)
+        }
     }
 
     const saveProduct = async (id) => {
@@ -462,16 +491,30 @@ export function Inventory() {
                                     <tr key={index} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                         <td className="px-3 py-2 font-medium text-slate-900 dark:text-white text-xs" title={product.name}>
                                             {editingId === product.id ? (
-                                                <input
-                                                    autoFocus
-                                                    className="w-full bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-2 py-1 outline-none"
-                                                    value={editValues.name}
-                                                    onChange={(e) => handleEditChange('name', e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') saveProduct(product.id)
-                                                        if (e.key === 'Escape') cancelEditing()
-                                                    }}
-                                                />
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        autoFocus
+                                                        className="flex-1 bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-2 py-1 outline-none"
+                                                        value={editValues.name}
+                                                        onChange={(e) => handleEditChange('name', e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') saveProduct(product.id)
+                                                            if (e.key === 'Escape') cancelEditing()
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={translateProductName}
+                                                        disabled={translating || !editValues.name}
+                                                        title="Traducir al español"
+                                                        className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center transition-all bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {translating ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <span className="text-sm">🌐</span>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             ) : (
                                                 <div className="truncate max-w-[150px]">{product.name}</div>
                                             )}
