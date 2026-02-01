@@ -389,8 +389,8 @@ function ProductUpload({ dispatch, onNext, onBack }) {
             // In development, use proxy to avoid CORS. In production, use direct URL.
             const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             const N8N_WEBHOOK_URL = isDevelopment
-                ? '/api/n8n/webhook/LecturaDeInvoice'
-                : (import.meta.env.VITE_N8N_COST_INVOICE_UPLOAD || 'https://n8n.neuracall.net/webhook/LecturaDeInvoice')
+                ? '/api/n8n/webhook/LecturaDeInvoice-test'
+                : (import.meta.env.VITE_N8N_COST_INVOICE_UPLOAD || 'https://n8n.neuracall.net/webhook/LecturaDeInvoice-test')
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
