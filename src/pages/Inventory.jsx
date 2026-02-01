@@ -186,14 +186,22 @@ export function Inventory() {
                     setTotalStock(stockData.reduce((acc, curr) => acc + (curr.stock || 0), 0))
                 }
             } else {
+                // No filters active - get totals from RPC or fallback to direct queries
                 const { data: stats } = await supabase.rpc('get_dashboard_summary')
 
-                if (stats) {
+                if (stats && stats.totalProducts && stats.totalStock) {
                     setTotalProducts(stats.totalProducts || 0)
                     setTotalStock(stats.totalStock || 0)
                 } else {
+                    // Fallback: calculate manually if RPC fails
                     const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
                     setTotalProducts(count || 0)
+
+                    // Calculate total stock
+                    const { data: stockData } = await supabase.from('products').select('stock')
+                    if (stockData) {
+                        setTotalStock(stockData.reduce((acc, curr) => acc + (curr.stock || 0), 0))
+                    }
                 }
             }
 
