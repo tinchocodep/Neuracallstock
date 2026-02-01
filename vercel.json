@@ -3,6 +3,10 @@
         {
             "source": "/api/n8n/:path*",
             "destination": "https://n8n.neuracall.net/:path*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
