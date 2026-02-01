@@ -315,6 +315,9 @@ export function Inventory() {
         setSaving(true)
         try {
             const newStock = parseInt(editValues.stock) || 0
+            const currentProduct = products.find(p => p.id === id)
+            const originalName = currentProduct?.name
+            const newName = editValues.name
 
             if (newStock <= 0) {
                 // Delete product if stock is 0 or less
@@ -346,6 +349,41 @@ export function Inventory() {
                 if (error) throw error
 
                 setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
+
+                // Check if name was changed (likely a translation)
+                if (originalName && originalName !== newName) {
+                    // Count how many other products have the same original name
+                    const { count } = await supabase
+                        .from('products')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('name', originalName)
+                        .neq('id', id)
+
+                    if (count && count > 0) {
+                        // Ask user if they want to apply translation to all duplicates
+                        const applyToAll = window.confirm(
+                            `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\n\n` +
+                            `¿Quieres traducirlos todos a "${newName}"?`
+                        )
+
+                        if (applyToAll) {
+                            // Update all products with the same original name
+                            const { error: batchError } = await supabase
+                                .from('products')
+                                .update({ name: newName })
+                                .eq('name', originalName)
+
+                            if (batchError) {
+                                console.error('Error updating duplicates:', batchError)
+                                alert('Error al actualizar productos duplicados')
+                            } else {
+                                // Refresh products to show updated names
+                                await fetchProducts()
+                                alert(`✅ ${count} producto${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} exitosamente!`)
+                            }
+                        }
+                    }
+                }
             }
 
             setEditingId(null)
