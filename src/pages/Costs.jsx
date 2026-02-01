@@ -394,6 +394,7 @@ function ProductUpload({ dispatch, onNext, onBack }) {
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
+            // Force deploy - using test endpoint
 
             const response = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
