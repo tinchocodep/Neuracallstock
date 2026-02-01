@@ -570,9 +570,10 @@ function CostsForm({ dispatch, onBack }) {
     }
 
     const handleCostChange = (field, value) => {
-        // Store the raw numeric value
-        const numericValue = value.replace(/[^\d.,]/g, '')
-        setCosts(prev => ({ ...prev, [field]: numericValue }))
+        // Parse Argentine format: remove thousand separators (dots) and replace decimal comma with dot
+        // Then store as plain number string for type="number" inputs
+        const cleanValue = value.replace(/\./g, '').replace(/,/g, '.')
+        setCosts(prev => ({ ...prev, [field]: cleanValue }))
     }
 
     // Calculate utilidad (23% of subtotal)
