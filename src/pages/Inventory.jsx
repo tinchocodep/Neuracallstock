@@ -254,9 +254,28 @@ export function Inventory() {
 
         setTranslating(true)
         try {
-            // MyMemory Translation API (free, no API key required)
+            const originalText = editValues.name.trim()
+
+            // Step 1: Check if translation exists in our dictionary (Supabase cache)
+            const { data: cachedTranslation } = await supabase
+                .from('translations')
+                .select('translated_text')
+                .eq('original_text', originalText)
+                .eq('source_lang', 'en')
+                .eq('target_lang', 'es')
+                .maybeSingle()
+
+            if (cachedTranslation) {
+                // Use cached translation (faster, no API call needed)
+                console.log('✅ Using cached translation')
+                setEditValues(prev => ({ ...prev, name: cachedTranslation.translated_text }))
+                return
+            }
+
+            // Step 2: No cache found, call translation API
+            console.log('🌐 Fetching new translation from API')
             const response = await fetch(
-                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(editValues.name)}&langpair=en|es`
+                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(originalText)}&langpair=en|es`
             )
 
             if (!response.ok) throw new Error('Translation API error')
@@ -264,8 +283,23 @@ export function Inventory() {
             const data = await response.json()
 
             if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                const translatedText = data.responseData.translatedText
+
+                // Step 3: Save translation to dictionary for future use
+                await supabase
+                    .from('translations')
+                    .insert({
+                        original_text: originalText,
+                        translated_text: translatedText,
+                        source_lang: 'en',
+                        target_lang: 'es'
+                    })
+                    .select()
+
+                console.log('💾 Translation saved to dictionary')
+
                 // Update the name field with the translation
-                setEditValues(prev => ({ ...prev, name: data.responseData.translatedText }))
+                setEditValues(prev => ({ ...prev, name: translatedText }))
             } else {
                 alert('No se pudo traducir el nombre. Intenta editarlo manualmente.')
             }
