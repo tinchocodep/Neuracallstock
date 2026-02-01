@@ -1,5 +1,4 @@
 import { Sidebar } from './Sidebar'
-import { FloatingActionButton } from '../FloatingActionButton'
 
 export function Layout({ children }) {
     return (
@@ -7,7 +6,6 @@ export function Layout({ children }) {
             <Sidebar />
             <main className="flex-1 overflow-auto bg-[var(--app-bg)] relative transition-colors duration-300">
                 {children}
-                <FloatingActionButton />
             </main>
         </div>
     )
