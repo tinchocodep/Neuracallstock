@@ -388,7 +388,7 @@ function ProductUpload({ dispatch, onNext, onBack }) {
             // N8N WEBHOOK URL
             // Always use proxy to avoid CORS (configured in netlify.toml)
             // Netlify will proxy /api/n8n/* to https://n8n.neuracall.net/*
-            const N8N_WEBHOOK_URL = '/api/n8n/webhook/LecturaDeInvoice-test'
+            const N8N_WEBHOOK_URL = '/api/n8n/webhook-test/LecturaDeInvoice'
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
