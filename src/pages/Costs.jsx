@@ -386,8 +386,8 @@ function ProductUpload({ dispatch, onNext, onBack }) {
             formData.append('origin', dispatch.origin)
 
             // N8N WEBHOOK URL
-            // Use environment variable if available (Vercel), otherwise use proxy (Netlify)
-            const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_COST_INVOICE_UPLOAD || '/api/n8n/webhook-test/LecturaDeInvoice'
+            // Temporarily hardcoded for testing - TODO: revert to env variable
+            const N8N_WEBHOOK_URL = 'https://n8n.neuracall.net/webhook-test/LecturaDeInvoice'
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
