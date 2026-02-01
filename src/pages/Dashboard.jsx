@@ -32,19 +32,43 @@ export function Dashboard() {
             if (companyData) setCompanyName(companyData.name)
             else setCompanyName('Mi Empresa')
 
-            // 2. Fetch Metrics via RPC for accuracy
+            // 2. Fetch Metrics via RPC for accuracy, with fallback
             const { data: stats, error: statsError } = await supabase.rpc('get_dashboard_summary')
 
-            if (statsError) throw statsError
-
-            if (stats) {
+            if (stats && stats.totalProducts && stats.totalStock) {
+                // RPC succeeded with valid data
                 setMetrics({
                     totalValue: stats.totalValue || 0,
                     totalProducts: stats.totalProducts || 0,
                     totalStock: stats.totalStock || 0,
-                    lowStock: stats.lowStock || 0, // Should be 0 from RPC
+                    lowStock: stats.lowStock || 0,
                     outOfStock: stats.outOfStock || 0
                 })
+            } else {
+                // Fallback: calculate manually if RPC fails or returns incomplete data
+                console.warn('RPC get_dashboard_summary failed or incomplete, using fallback calculations')
+
+                // Get total products count
+                const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
+
+                // Get all products data for calculations
+                const { data: allProducts } = await supabase.from('products').select('stock, neto')
+
+                if (allProducts) {
+                    const totalStock = allProducts.reduce((acc, curr) => acc + (curr.stock || 0), 0)
+                    const totalValue = allProducts.reduce((acc, curr) => acc + (curr.neto || 0), 0)
+
+                    // Count out of stock
+                    const outOfStock = allProducts.filter(p => (p.stock || 0) === 0).length
+
+                    setMetrics({
+                        totalValue: totalValue,
+                        totalProducts: count || 0,
+                        totalStock: totalStock,
+                        lowStock: 0, // We don't have a threshold defined, so keeping as 0
+                        outOfStock: outOfStock
+                    })
+                }
             }
 
             // 3. Fetch separate data for Lists (Categories, Alerts)
