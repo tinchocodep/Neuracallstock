@@ -498,7 +498,7 @@ export function Inventory() {
                                                     onChange={(e) => handleEditChange('price', e.target.value)}
                                                 />
                                             ) : (
-                                                formatCurrency(product.neto || 0)
+                                                formatCurrency(product.price || 0)
                                             )}
                                         </td>
                                         <td className="px-3 py-2 text-center font-bold text-xs text-slate-900 dark:text-white">
