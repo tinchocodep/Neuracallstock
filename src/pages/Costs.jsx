@@ -823,11 +823,22 @@ function CostsForm({ dispatch, onBack }) {
 
             for (let i = 0; i < updatedProducts.length; i++) {
                 const product = updatedProducts[i]
-                console.log(`Updating product ${i + 1}/${updatedProducts.length} - ID: ${product.id}, New Price: $${product.price.toFixed(2)}`)
+                const originalProduct = products[i]
+
+                // Calculate neto = price * stock
+                const neto = product.price * originalProduct.stock
+
+                console.log(`Updating product ${i + 1}/${updatedProducts.length} - ID: ${product.id}`)
+                console.log(`  New Price: $${product.price.toFixed(2)}`)
+                console.log(`  Stock: ${originalProduct.stock}`)
+                console.log(`  Neto (price × stock): $${neto.toFixed(2)}`)
 
                 const { error: updateError } = await supabase
                     .from('products')
-                    .update({ price: product.price })
+                    .update({
+                        price: product.price,
+                        neto: neto
+                    })
                     .eq('id', product.id)
 
                 if (updateError) {
