@@ -772,9 +772,11 @@ function CostsForm({ dispatch, onBack }) {
 
             // 5. Calculate subtotal and utilidad
             const subtotal = totalFobARS + totalCosts
-            const utilidadAmount = parseFormattedNumber(costs.utilidad)
+            // CRITICAL FIX: Always recalculate utilidad from subtotal (don't trust stored value)
+            // This prevents issues with incorrectly formatted values
+            const utilidadAmount = subtotal * 0.23
             console.log('Subtotal (FOB ARS + Costs):', subtotal)
-            console.log('Utilidad (23%):', utilidadAmount)
+            console.log('Utilidad (23% recalculated):', utilidadAmount)
 
             // 7. Calculate total to distribute
             const totalToDistribute = subtotal + utilidadAmount
