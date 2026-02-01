@@ -381,7 +381,7 @@ function ProductUpload({ dispatch, onNext, onBack }) {
 
             // Send dispatch data to N8N (N8N will create the dispatch)
             formData.append('dispatchNumber', dispatch.dispatch_number)
-            formData.append('dispatchReference', dispatch.description || '')
+            formData.append('description', dispatch.description || '')  // Changed from dispatchReference to description
             formData.append('companyId', dispatch.company_id)
             formData.append('origin', dispatch.origin)
 
