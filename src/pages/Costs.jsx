@@ -100,8 +100,8 @@ function DispatchSelection({ onSelect }) {
     // Form State
     const [newDispatch, setNewDispatch] = useState({ dispatch_number: '', description: '', origin: 'CHINA' })
 
-    // Use default company_id (profiles table doesn't exist yet)
-    const defaultCompanyId = 'afffddf6-0c49-40e1-bc01-5f44af0b9015'
+    // Use default company_id - NEURACALL
+    const defaultCompanyId = 'c8a5b2f7-2e49-4d16-a614-1d4acf45e94b'
 
     useEffect(() => {
         setPage(0)
