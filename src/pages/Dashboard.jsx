@@ -51,8 +51,11 @@ export function Dashboard() {
                 // Get total products count
                 const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
 
-                // Get all products data for calculations
-                const { data: allProducts } = await supabase.from('products').select('stock, neto')
+                // Get all products data for calculations (remove 1000 limit)
+                const { data: allProducts } = await supabase
+                    .from('products')
+                    .select('stock, neto')
+                    .range(0, 99999) // Fetch up to 100k products instead of default 1000
 
                 if (allProducts) {
                     const totalStock = allProducts.reduce((acc, curr) => acc + (curr.stock || 0), 0)
@@ -82,15 +85,11 @@ export function Dashboard() {
 
             setAlerts(alertItems || [])
 
-            // For categories, we might ideally use an RPC too, but for now 
-            // let's fetch a larger chunk or just aggregation if possible.
-            // Since we can't aggregate easily without RPC, we'll try to fetch 
-            // a reasonable sample for the chart or skip it if too heavy.
-            // Let's fetch 1000 just for the chart distribution pattern.
+            // Fetch ALL products for accurate category distribution
             const { data: products } = await supabase
                 .from('products')
                 .select('category, stock, price, neto') // minimal fields
-                .range(0, 999)
+                .range(0, 99999) // Fetch all products instead of just 1000
 
             if (products) {
                 const catMap = {}
