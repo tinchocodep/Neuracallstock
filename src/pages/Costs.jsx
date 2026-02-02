@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
     Package,
     Upload,
@@ -122,20 +122,26 @@ function DispatchSelection({ onSelect }) {
         fetchUserCompanyId()
     }, [])
 
+    // Debounced search to avoid excessive queries
     useEffect(() => {
         setPage(0)
+        const timer = setTimeout(() => {
+            fetchDispatches()
+        }, 300) // 300ms debounce
+        return () => clearTimeout(timer)
     }, [searchTerm])
 
     useEffect(() => {
         fetchDispatches()
-    }, [searchTerm, page, pageSize])
+    }, [page, pageSize])
 
-    const fetchDispatches = async () => {
+    const fetchDispatches = useCallback(async () => {
         setLoading(true)
         try {
+            // Optimized: Select only needed columns instead of *
             let query = supabase
                 .from('dispatches')
-                .select('*', { count: 'exact' })
+                .select('id, dispatch_number, description, origin, status, created_at', { count: 'exact' })
                 .order('created_at', { ascending: false })
 
             if (searchTerm) {
@@ -163,7 +169,7 @@ function DispatchSelection({ onSelect }) {
         } finally {
             setLoading(false)
         }
-    }
+    }, [searchTerm, page, pageSize])
 
     const handleCreate = async () => {
         // Validate required fields
