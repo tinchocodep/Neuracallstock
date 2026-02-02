@@ -100,8 +100,27 @@ function DispatchSelection({ onSelect }) {
     // Form State
     const [newDispatch, setNewDispatch] = useState({ dispatch_number: '', description: '', origin: 'CHINA' })
 
-    // Use default company_id - NEURACALL
-    const defaultCompanyId = 'c8a5b2f7-2e49-4d16-a614-1d4acf45e94b'
+    // Get company_id from authenticated user's profile
+    const [userCompanyId, setUserCompanyId] = useState(null)
+
+    // Fetch user's company_id on mount
+    useEffect(() => {
+        const fetchUserCompanyId = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('company_id')
+                    .eq('id', user.id)
+                    .single()
+
+                if (profile) {
+                    setUserCompanyId(profile.company_id)
+                }
+            }
+        }
+        fetchUserCompanyId()
+    }, [])
 
     useEffect(() => {
         setPage(0)
@@ -158,7 +177,7 @@ function DispatchSelection({ onSelect }) {
         setIsCreating(false)
         onSelect({
             ...newDispatch,
-            company_id: defaultCompanyId,
+            company_id: userCompanyId,
             status: 'new',  // Indicates it needs to be created by N8N
             id: null  // No ID yet - will be set by N8N response
         })
