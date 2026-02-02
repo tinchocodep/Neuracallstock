@@ -180,8 +180,7 @@ export function Sidebar() {
                     </button>
 
                     <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-center">
-                        <a href="https://neuracall.net/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity flex items-center gap-1">
-                            <img src="/src/assets/neuracall_web_logo.png" alt="Neuracall" className="h-5" />
+                        <a href="https://neuracall.net/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity">
                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Neuracall</span>
                         </a>
                     </div>
