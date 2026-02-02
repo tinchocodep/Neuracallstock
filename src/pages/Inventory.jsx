@@ -384,15 +384,38 @@ export function Inventory() {
         const product = products.find(p => p.id === id)
         if (!product) return
 
-        const confirmed = window.confirm(
-            `¿Estás seguro que querés eliminar "${product.name}"?\n\n` +
-            `Esta acción no se puede deshacer.`
-        )
-
-        if (!confirmed) return
-
         setSaving(true)
         try {
+            // Check if product is referenced in invoice_items
+            const { data: invoiceItems, error: checkError } = await supabase
+                .from('invoice_items')
+                .select('id', { count: 'exact', head: true })
+                .eq('product_id', id)
+
+            if (checkError) throw checkError
+
+            // If product is in invoices, prevent deletion
+            if (invoiceItems && invoiceItems.length > 0) {
+                alert(
+                    `❌ No se puede eliminar "${product.name}"\n\n` +
+                    `Este producto está incluido en facturas existentes.\n\n` +
+                    `Si querés ocultarlo del inventario, cambiá el stock a 0.`
+                )
+                setSaving(false)
+                return
+            }
+
+            // Confirm deletion
+            const confirmed = window.confirm(
+                `¿Estás seguro que querés eliminar "${product.name}"?\n\n` +
+                `Esta acción no se puede deshacer.`
+            )
+
+            if (!confirmed) {
+                setSaving(false)
+                return
+            }
+
             const { error } = await supabase
                 .from('products')
                 .delete()
