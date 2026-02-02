@@ -200,6 +200,7 @@ export function Billing() {
 
             const payload = {
                 type: invoiceType,
+                creditnote: false, // Flag para indicar que NO es nota de crédito
                 client: selectedClient,
                 items: safeCart.map(item => {
                     const quantity = Number(item.quantity) || 1

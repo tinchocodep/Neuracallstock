@@ -386,7 +386,7 @@ function ReturnDetails({ invoice, setCreditNoteResult, setSelectedInvoice }) {
 
             const payload = {
                 type: invoice.type, // Mismo tipo que la factura original (A, B, C, etc.)
-                creditNote: true, // Flag para indicar que es nota de crédito
+                creditnote: true, // Flag para indicar que es nota de crédito
                 originalInvoiceNumber: invoice.number,
                 originalInvoiceCae: invoice.cae || '',
                 client: invoice.client,
