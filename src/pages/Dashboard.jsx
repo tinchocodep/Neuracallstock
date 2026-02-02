@@ -58,9 +58,17 @@ export function Dashboard() {
                     .select('stock, neto')
                     .range(0, 99999) // Fetch up to 100k products instead of default 1000
 
+                console.log('🔍 DEBUG: Products fetched:', allProducts?.length || 0)
+                console.log('🔍 DEBUG: First 3 products:', allProducts?.slice(0, 3))
+
                 if (allProducts) {
                     const totalStock = allProducts.reduce((acc, curr) => acc + (curr.stock || 0), 0)
                     const totalValue = allProducts.reduce((acc, curr) => acc + (curr.neto || 0), 0)
+
+                    console.log('📊 DEBUG: Total products fetched:', allProducts.length)
+                    console.log('📊 DEBUG: Total stock calculated:', totalStock)
+                    console.log('📊 DEBUG: Total value (neto) calculated:', totalValue)
+                    console.log('📊 DEBUG: Sample neto values:', allProducts.slice(0, 5).map(p => ({ stock: p.stock, neto: p.neto })))
 
                     // Count out of stock
                     const outOfStock = allProducts.filter(p => (p.stock || 0) === 0).length
