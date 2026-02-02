@@ -1,4 +1,11 @@
 {
+    "buildCommand": "npm run build",
+    "framework": "vite",
+    "build": {
+        "env": {
+            "VITE_FORCE_REBUILD": "true"
+        }
+    },
     "rewrites": [
         {
             "source": "/api/n8n/:path*",

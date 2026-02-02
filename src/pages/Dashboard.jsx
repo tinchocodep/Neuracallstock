@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { Package, AlertTriangle, AlertCircle, DollarSign, RefreshCw, TrendingUp } from 'lucide-react'
 
-// Dashboard v2.1 - Fixed inventory calculation with .range(0, 99999)
+// Dashboard v2.2 - FORCE REBUILD - Fixed inventory with range(0,99999)
 export function Dashboard() {
     const [companyName, setCompanyName] = useState('Loading...')
     const [metrics, setMetrics] = useState({
