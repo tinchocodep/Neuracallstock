@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { Package, AlertTriangle, AlertCircle, DollarSign, RefreshCw, TrendingUp } from 'lucide-react'
 
-// Dashboard v2.2 - FORCE REBUILD - Fixed inventory with range(0,99999)
+// Dashboard v3.0 - PAGINATION APPROACH - Fetches ALL products in batches
 export function Dashboard() {
     const [companyName, setCompanyName] = useState('Loading...')
     const [metrics, setMetrics] = useState({
@@ -52,20 +52,47 @@ export function Dashboard() {
                 // Get total products count
                 const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
 
-                // Get all products data for calculations (remove 1000 limit)
-                const { data: allProducts } = await supabase
-                    .from('products')
-                    .select('stock, neto')
-                    .range(0, 99999) // Fetch up to 100k products instead of default 1000
+                // FETCH ALL PRODUCTS using pagination (bypass 1000 limit)
+                let allProducts = []
+                let page = 0
+                const pageSize = 1000
+                let hasMore = true
 
-                console.log('🔍 DEBUG: Products fetched:', allProducts?.length || 0)
-                console.log('🔍 DEBUG: First 3 products:', allProducts?.slice(0, 3))
+                console.log('🔄 Starting pagination to fetch ALL products...')
 
-                if (allProducts) {
+                while (hasMore) {
+                    const { data: pageData, error } = await supabase
+                        .from('products')
+                        .select('stock, neto')
+                        .range(page * pageSize, (page + 1) * pageSize - 1)
+
+                    if (error) {
+                        console.error('❌ Error fetching page', page, error)
+                        break
+                    }
+
+                    if (pageData && pageData.length > 0) {
+                        allProducts = [...allProducts, ...pageData]
+                        console.log(`📄 Page ${page + 1}: Fetched ${pageData.length} products (Total so far: ${allProducts.length})`)
+
+                        // If we got less than pageSize, we've reached the end
+                        if (pageData.length < pageSize) {
+                            hasMore = false
+                        } else {
+                            page++
+                        }
+                    } else {
+                        hasMore = false
+                    }
+                }
+
+                console.log('✅ FINAL: Total products fetched:', allProducts.length)
+                console.log('🔍 DEBUG: First 3 products:', allProducts.slice(0, 3))
+
+                if (allProducts.length > 0) {
                     const totalStock = allProducts.reduce((acc, curr) => acc + (curr.stock || 0), 0)
                     const totalValue = allProducts.reduce((acc, curr) => acc + (curr.neto || 0), 0)
 
-                    console.log('📊 DEBUG: Total products fetched:', allProducts.length)
                     console.log('📊 DEBUG: Total stock calculated:', totalStock)
                     console.log('📊 DEBUG: Total value (neto) calculated:', totalValue)
                     console.log('📊 DEBUG: Sample neto values:', allProducts.slice(0, 5).map(p => ({ stock: p.stock, neto: p.neto })))
@@ -77,7 +104,7 @@ export function Dashboard() {
                         totalValue: totalValue,
                         totalProducts: count || 0,
                         totalStock: totalStock,
-                        lowStock: 0, // We don't have a threshold defined, so keeping as 0
+                        lowStock: 0,
                         outOfStock: outOfStock
                     })
                 }
