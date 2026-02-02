@@ -34,10 +34,18 @@ export function Dashboard() {
             else setCompanyName('Mi Empresa')
 
             // 2. Fetch Metrics via RPC for accuracy, with fallback
+            console.log('🚀 Attempting to call RPC get_dashboard_summary...')
             const { data: stats, error: statsError } = await supabase.rpc('get_dashboard_summary')
 
-            if (stats && stats.totalProducts && stats.totalStock) {
+            console.log('📡 RPC Response:', { stats, error: statsError })
+
+            if (statsError) {
+                console.error('❌ RPC Error:', statsError)
+            }
+
+            if (stats && !statsError && stats.totalProducts > 0) {
                 // RPC succeeded with valid data
+                console.log('✅ Using RPC data (FAST)')
                 setMetrics({
                     totalValue: stats.totalValue || 0,
                     totalProducts: stats.totalProducts || 0,
