@@ -385,8 +385,8 @@ function ProductUpload({ dispatch, onNext, onBack }) {
             formData.append('companyId', dispatch.company_id)
             formData.append('origin', dispatch.origin)
 
-            // N8N WEBHOOK URL - Using test webhook
-            const N8N_WEBHOOK_URL = 'https://n8n.neuracall.net/webhook-test/LecturaDeInvoice'
+            // N8N WEBHOOK URL - Using production webhook
+            const N8N_WEBHOOK_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoice'
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
