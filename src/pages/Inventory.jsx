@@ -319,68 +319,52 @@ export function Inventory() {
             const originalName = currentProduct?.name
             const newName = editValues.name
 
-            if (newStock <= 0) {
-                // Delete product if stock is 0 or less
-                const { error } = await supabase
+            // Always update product, even if stock is 0
+            const updates = {
+                name: editValues.name,
+                price: parseFloat(editValues.price) || 0,
+                stock: newStock
+            }
+
+            const { error } = await supabase
+                .from('products')
+                .update(updates)
+                .eq('id', id)
+
+            if (error) throw error
+
+            setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
+
+            // Check if name was changed (likely a translation)
+            if (originalName && originalName !== newName) {
+                // Count how many other products have the same original name
+                const { count } = await supabase
                     .from('products')
-                    .delete()
-                    .eq('id', id)
+                    .select('*', { count: 'exact', head: true })
+                    .eq('name', originalName)
+                    .neq('id', id)
 
-                if (error) throw error
+                if (count && count > 0) {
+                    // Ask user if they want to apply translation to all duplicates
+                    const applyToAll = window.confirm(
+                        `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\n\n` +
+                        `¿Quieres traducirlos todos a "${newName}"?`
+                    )
 
-                // Remove from local state and cart
-                removeFromCart(id)
-                setProducts(products.filter(p => p.id !== id))
-                setTotalProducts(prev => prev - 1)
-                setTotalStock(prev => prev - (products.find(p => p.id === id)?.stock || 0))
-            } else {
-                // Update product normally
-                const updates = {
-                    name: editValues.name,
-                    price: parseFloat(editValues.price) || 0,
-                    stock: newStock
-                }
+                    if (applyToAll) {
+                        // Update all products with the same original name
+                        const { error: batchError } = await supabase
+                            .from('products')
+                            .update({ name: newName })
+                            .eq('name', originalName)
 
-                const { error } = await supabase
-                    .from('products')
-                    .update(updates)
-                    .eq('id', id)
-
-                if (error) throw error
-
-                setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
-
-                // Check if name was changed (likely a translation)
-                if (originalName && originalName !== newName) {
-                    // Count how many other products have the same original name
-                    const { count } = await supabase
-                        .from('products')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('name', originalName)
-                        .neq('id', id)
-
-                    if (count && count > 0) {
-                        // Ask user if they want to apply translation to all duplicates
-                        const applyToAll = window.confirm(
-                            `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\n\n` +
-                            `¿Quieres traducirlos todos a "${newName}"?`
-                        )
-
-                        if (applyToAll) {
-                            // Update all products with the same original name
-                            const { error: batchError } = await supabase
-                                .from('products')
-                                .update({ name: newName })
-                                .eq('name', originalName)
-
-                            if (batchError) {
-                                console.error('Error updating duplicates:', batchError)
-                                alert('Error al actualizar productos duplicados')
-                            } else {
-                                // Refresh products to show updated names
-                                await fetchProducts()
-                                alert(`✅ ${count} producto${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} exitosamente!`)
-                            }
+                        if (batchError) {
+                            console.error('Error updating duplicates:', batchError)
+                            alert('Error al actualizar productos duplicados')
+                        } else {
+                            // Refresh products to show updated names
+                            await fetchProducts()
+                            alert(`✅ ${count} producto${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} exitosamente!`)
                         }
                     }
                 }
@@ -390,6 +374,42 @@ export function Inventory() {
         } catch (error) {
             console.error('Error updating product:', error)
             alert('Error al actualizar el producto')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const deleteProduct = async (id) => {
+        // Confirm deletion
+        const product = products.find(p => p.id === id)
+        if (!product) return
+
+        const confirmed = window.confirm(
+            `¿Estás seguro que querés eliminar "${product.name}"?\n\n` +
+            `Esta acción no se puede deshacer.`
+        )
+
+        if (!confirmed) return
+
+        setSaving(true)
+        try {
+            const { error } = await supabase
+                .from('products')
+                .delete()
+                .eq('id', id)
+
+            if (error) throw error
+
+            // Remove from local state and cart
+            removeFromCart(id)
+            setProducts(products.filter(p => p.id !== id))
+            setTotalProducts(prev => prev - 1)
+            setTotalStock(prev => prev - (product.stock || 0))
+
+            alert('✅ Producto eliminado exitosamente')
+        } catch (error) {
+            console.error('Error deleting product:', error)
+            alert('Error al eliminar el producto')
         } finally {
             setSaving(false)
         }
@@ -700,13 +720,23 @@ export function Inventory() {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <button
-                                                        title="Editar producto"
-                                                        onClick={() => startEditing(product)}
-                                                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white"
-                                                    >
-                                                        <Pen className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            title="Editar producto"
+                                                            onClick={() => startEditing(product)}
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white"
+                                                        >
+                                                            <Pen className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            title="Eliminar producto"
+                                                            onClick={() => deleteProduct(product.id)}
+                                                            disabled={saving}
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
