@@ -383,10 +383,8 @@ function ProductUpload({ dispatch, onNext, onBack }) {
             formData.append('dispatchNumber', dispatch.dispatch_number)
             formData.append('description', dispatch.description || '')  // Changed from dispatchReference to description
             formData.append('companyId', dispatch.company_id)
-            formData.append('origin', dispatch.origin)
-
-            // N8N WEBHOOK URL - Using production webhook
-            const N8N_WEBHOOK_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoice'
+            formData.append('origin',            // Use test webhook for development
+            const n8nUrl = 'https://n8n.neuracall.net/webhook-test/LecturaDeInvoice'
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
