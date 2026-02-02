@@ -638,7 +638,12 @@ export function Inventory() {
                                         </td>
                                         <td className="px-3 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400 text-xs">
                                             {editingId === product.id ? (
-                                                formatCurrency((parseFloat(editValues.price) || 0) * (parseInt(editValues.stock) || 0))
+                                                (() => {
+                                                    const price = parseFloat(editValues.price) || 0
+                                                    const stock = parseInt(editValues.stock) || 0
+                                                    const neto = price * stock
+                                                    return formatCurrency(neto)
+                                                })()
                                             ) : (
                                                 formatCurrency(product.neto || 0)
                                             )}
