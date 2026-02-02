@@ -367,7 +367,7 @@ function ReturnDetails({ invoice, setCreditNoteResult, setSelectedInvoice }) {
     const handleGenerateCreditNote = async () => {
         setIsSubmitting(true)
         try {
-            const webhookUrl = import.meta.env.VITE_INVOICE_WEBHOOK_URL || 'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
+            const webhookUrl = import.meta.env.VITE_INVOICE_WEBHOOK_URL || 'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
 
             // Prepare items to return
             const itemsToReturn = invoice.items
