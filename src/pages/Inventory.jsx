@@ -901,6 +901,18 @@ export function Inventory() {
                             <Package className="w-[18px] h-[18px]" />
                             Categorías
                         </button>
+                        <button
+                            onClick={() => {
+                                sessionStorage.removeItem('hasAutoTranslated')
+                                autoTranslateProducts()
+                            }}
+                            disabled={loading || saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg transition-colors shadow-sm"
+                            title="Traducir todos los productos del inglés al español"
+                        >
+                            <span className="text-sm">🌐</span>
+                            Traducir Todo
+                        </button>
                     </div>
                 </div>
 
