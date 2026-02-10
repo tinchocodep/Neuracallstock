@@ -636,7 +636,7 @@ export function Inventory() {
     }
 
     const autoTranslateProducts = async () => {
-        // Automatic translation of products with non-Spanish names (silent, in background)
+        // Automatic translation of products from English to Spanish (silent, in background)
         try {
             // Get all products
             const { data: allProducts, error: fetchError } = await supabase
@@ -646,15 +646,24 @@ export function Inventory() {
             if (fetchError) throw fetchError
             if (!allProducts || allProducts.length === 0) return
 
-            // Filter products that need translation (have non-Spanish characters)
+            // Filter products that likely need translation (English words)
+            // We'll translate all products and let Google Translate detect if it's already Spanish
             const productsToTranslate = allProducts.filter(product => {
-                const hasNonSpanishChars = /[^\u0000-\u007F\u00C0-\u00FF\u0100-\u017F\u0180-\u024F\s\d\-_.,;:!?()\[\]{}'"\/\\@#$%&*+=<>|~`^]/.test(product.name)
-                return hasNonSpanishChars
+                // Skip if already all uppercase (likely already processed)
+                if (product.name === product.name.toUpperCase()) return false
+
+                // Translate if it contains common English words or patterns
+                const englishPattern = /\b(the|and|or|of|in|on|at|to|for|with|by|from|as|is|was|are|were|be|been|being|have|has|had|do|does|did|will|would|should|could|may|might|must|can|shall|new|old|big|small|good|bad|red|blue|green|black|white|yellow|pink|purple|orange|brown|gray|grey|men|women|kids|baby|adult|shirt|pant|shoe|dress|jacket|coat|hat|cap|bag|watch|phone|case|cover|holder|stand|mount|cable|charger|adapter|battery|power|bank|light|lamp|fan|heater|cooler|speaker|headphone|earphone|mouse|keyboard|monitor|screen|display|camera|lens|tripod|flash|memory|card|storage|drive|usb|hdmi|vga|audio|video|gaming|game|console|controller|accessory|accessories|set|kit|pack|piece|pair|unit|size|color|style|type|model|brand|quality|premium|luxury|professional|pro|plus|max|mini|micro|nano|ultra|super|mega|giga|tera)\b/i
+
+                return englishPattern.test(product.name)
             })
 
-            if (productsToTranslate.length === 0) return
+            if (productsToTranslate.length === 0) {
+                console.log('✅ No products need translation')
+                return
+            }
 
-            console.log(`🌐 Auto-translating ${productsToTranslate.length} products...`)
+            console.log(`🌐 Auto-translating ${productsToTranslate.length} products from English to Spanish...`)
 
             let translatedCount = 0
             const batchSize = 5 // Translate in batches to avoid rate limiting
@@ -664,22 +673,25 @@ export function Inventory() {
 
                 await Promise.all(batch.map(async (product) => {
                     try {
-                        // Translate to Spanish
-                        const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=' + encodeURIComponent(product.name))
+                        // Translate from English to Spanish
+                        const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=' + encodeURIComponent(product.name))
                         const data = await response.json()
 
                         if (data && data[0] && data[0][0] && data[0][0][0]) {
                             const translatedName = data[0][0][0].toUpperCase()
 
-                            // Update product in database
-                            const { error: updateError } = await supabase
-                                .from('products')
-                                .update({ name: translatedName })
-                                .eq('id', product.id)
+                            // Only update if translation is different from original
+                            if (translatedName !== product.name.toUpperCase()) {
+                                // Update product in database
+                                const { error: updateError } = await supabase
+                                    .from('products')
+                                    .update({ name: translatedName })
+                                    .eq('id', product.id)
 
-                            if (!updateError) {
-                                translatedCount++
-                                console.log(`✅ Translated: "${product.name}" → "${translatedName}"`)
+                                if (!updateError) {
+                                    translatedCount++
+                                    console.log(`✅ Translated: "${product.name}" → "${translatedName}"`)
+                                }
                             }
                         }
                     } catch (err) {
@@ -697,6 +709,8 @@ export function Inventory() {
                 console.log(`✅ Auto-translated ${translatedCount} products`)
                 // Refresh products to show translated names
                 fetchProducts()
+            } else {
+                console.log('✅ All products are already in Spanish')
             }
         } catch (error) {
             console.error('Error in auto-translate:', error)
