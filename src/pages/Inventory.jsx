@@ -646,30 +646,13 @@ export function Inventory() {
             if (fetchError) throw fetchError
             if (!allProducts || allProducts.length === 0) return
 
-            // Filter products that likely need translation (English words)
-            // We'll translate all products and let Google Translate detect if it's already Spanish
-            const productsToTranslate = allProducts.filter(product => {
-                // Skip if already all uppercase (likely already processed)
-                if (product.name === product.name.toUpperCase()) return false
-
-                // Translate if it contains common English words or patterns
-                const englishPattern = /\b(the|and|or|of|in|on|at|to|for|with|by|from|as|is|was|are|were|be|been|being|have|has|had|do|does|did|will|would|should|could|may|might|must|can|shall|new|old|big|small|good|bad|red|blue|green|black|white|yellow|pink|purple|orange|brown|gray|grey|men|women|kids|baby|adult|shirt|pant|shoe|dress|jacket|coat|hat|cap|bag|watch|phone|case|cover|holder|stand|mount|cable|charger|adapter|battery|power|bank|light|lamp|fan|heater|cooler|speaker|headphone|earphone|mouse|keyboard|monitor|screen|display|camera|lens|tripod|flash|memory|card|storage|drive|usb|hdmi|vga|audio|video|gaming|game|console|controller|accessory|accessories|set|kit|pack|piece|pair|unit|size|color|style|type|model|brand|quality|premium|luxury|professional|pro|plus|max|mini|micro|nano|ultra|super|mega|giga|tera)\b/i
-
-                return englishPattern.test(product.name)
-            })
-
-            if (productsToTranslate.length === 0) {
-                console.log('✅ No products need translation')
-                return
-            }
-
-            console.log(`🌐 Auto-translating ${productsToTranslate.length} products from English to Spanish...`)
+            console.log(`🌐 Auto-translating ${allProducts.length} products to Spanish...`)
 
             let translatedCount = 0
-            const batchSize = 5 // Translate in batches to avoid rate limiting
+            const batchSize = 10 // Translate in batches to avoid rate limiting
 
-            for (let i = 0; i < productsToTranslate.length; i += batchSize) {
-                const batch = productsToTranslate.slice(i, i + batchSize)
+            for (let i = 0; i < allProducts.length; i += batchSize) {
+                const batch = allProducts.slice(i, i + batchSize)
 
                 await Promise.all(batch.map(async (product) => {
                     try {
@@ -700,8 +683,8 @@ export function Inventory() {
                 }))
 
                 // Small delay between batches to avoid rate limiting
-                if (i + batchSize < productsToTranslate.length) {
-                    await new Promise(resolve => setTimeout(resolve, 1000))
+                if (i + batchSize < allProducts.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500))
                 }
             }
 
