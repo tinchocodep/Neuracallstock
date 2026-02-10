@@ -645,15 +645,39 @@ export function Inventory() {
         }
 
         try {
-            // Get ALL products to translate
-            const { data: allProducts, error: fetchError } = await supabase
-                .from('products')
-                .select('id, name')
+            // Get ALL products to translate (with pagination for 7500+ products)
+            console.log('📥 Fetching all products from database...')
 
-            if (fetchError) throw fetchError
-            if (!allProducts || allProducts.length === 0) return
+            let allProducts = []
+            let page = 0
+            const pageSize = 1000
+            let hasMore = true
 
-            console.log(`🌐 Auto-translating ${allProducts.length} products...`)
+            while (hasMore) {
+                const { data: pageData, error: fetchError } = await supabase
+                    .from('products')
+                    .select('id, name')
+                    .range(page * pageSize, (page + 1) * pageSize - 1)
+
+                if (fetchError) throw fetchError
+
+                if (pageData && pageData.length > 0) {
+                    allProducts = [...allProducts, ...pageData]
+                    console.log(`📦 Fetched page ${page + 1}: ${pageData.length} products (Total: ${allProducts.length})`)
+                    page++
+                    hasMore = pageData.length === pageSize
+                } else {
+                    hasMore = false
+                }
+            }
+
+            if (allProducts.length === 0) {
+                console.log('❌ No products found')
+                return
+            }
+
+            console.log(`✅ Total products fetched: ${allProducts.length}`)
+            console.log(`🌐 Starting translation process...`)
 
             let translatedCount = 0
             let errorCount = 0
