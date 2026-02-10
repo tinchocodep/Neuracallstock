@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { InvoiceResultModal } from '../components/billing/InvoiceResultModal'
+import { useCompanyConfig } from '../hooks/useCompanyConfig'
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
@@ -341,6 +342,7 @@ function NewReturn({ onCancel }) {
 }
 
 function ReturnDetails({ invoice, setCreditNoteResult, setSelectedInvoice }) {
+    const { config: companyConfig } = useCompanyConfig()
     const [returnQuantities, setReturnQuantities] = useState({})
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -367,7 +369,10 @@ function ReturnDetails({ invoice, setCreditNoteResult, setSelectedInvoice }) {
     const handleGenerateCreditNote = async () => {
         setIsSubmitting(true)
         try {
-            const webhookUrl = import.meta.env.VITE_INVOICE_WEBHOOK_URL || 'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
+            // Obtener webhook específico de la compañía del usuario
+            const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
+                import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
+                'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
 
             // Prepare items to return
             const itemsToReturn = invoice.items

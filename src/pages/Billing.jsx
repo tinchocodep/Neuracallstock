@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient'
 import { ClientModal } from '../components/clients/ClientModal'
 import { QuantityInput } from '../components/ui/QuantityInput'
 import { InvoiceResultModal } from '../components/billing/InvoiceResultModal'
+import { useCompanyConfig } from '../hooks/useCompanyConfig'
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
@@ -12,6 +13,7 @@ const formatCurrency = (value) => {
 
 export function Billing() {
     const { cart, removeFromCart, updateQuantity, addToCart, clearCart, updateCartItem } = useCart()
+    const { config: companyConfig, loading: loadingConfig } = useCompanyConfig()
     const [invoiceType, setInvoiceType] = useState('B')
 
     // Client State
@@ -196,7 +198,10 @@ export function Billing() {
     const handleGenerateInvoice = async () => {
         setIsSubmitting(true)
         try {
-            const webhookUrl = import.meta.env.VITE_INVOICE_WEBHOOK_URL || 'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
+            // Obtener webhook específico de la compañía del usuario
+            const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
+                import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
+                'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
 
             const payload = {
                 type: invoiceType,

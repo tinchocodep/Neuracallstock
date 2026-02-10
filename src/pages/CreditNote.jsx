@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { useCompanyConfig } from '../hooks/useCompanyConfig'
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
@@ -10,6 +11,7 @@ const formatCurrency = (value) => {
 export function CreditNote() {
     const location = useLocation()
     const navigate = useNavigate()
+    const { config: companyConfig } = useCompanyConfig()
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
     const [pdfUrl, setPdfUrl] = useState(null)
@@ -30,7 +32,10 @@ export function CreditNote() {
         setPdfUrl(null)
 
         try {
-            const webhookUrl = import.meta.env.VITE_INVOICE_WEBHOOK_URL
+            // Obtener webhook específico de la compañía del usuario
+            const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
+                import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
+                'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
 
             if (!webhookUrl) {
                 throw new Error('Webhook URL no configurada')
