@@ -345,10 +345,27 @@ export function Inventory() {
             const newStock = parseInt(editValues.stock) || 0
             const currentProduct = products.find(p => p.id === id)
             const originalName = currentProduct?.name
-            const newName = editValues.name
+            let newName = editValues.name
+
+            // 🌐 AUTO-TRANSLATE: Translate to Spanish if needed
+            const hasNonSpanishChars = /[^\u0000-\u007F\u00C0-\u00FF\u0100-\u017F\u0180-\u024F\s\d\-_.,;:!?()[\]{}'"\/\\@#$%&*+=<>|~`^]/.test(newName)
+
+            if (hasNonSpanishChars) {
+                try {
+                    const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=' + encodeURIComponent(newName))
+                    const data = await response.json()
+                    if (data && data[0] && data[0][0] && data[0][0][0]) {
+                        newName = data[0][0][0]
+                        console.log(`🌐 Auto-translated: "${editValues.name}" → "${newName}"`)
+                    }
+                } catch (translateError) {
+                    console.error('Auto-translation failed:', translateError)
+                    // Continue with original name if translation fails
+                }
+            }
 
             // 🔄 AUTO-NORMALIZE: Convert name to UPPERCASE
-            const normalizedName = editValues.name.toUpperCase()
+            const normalizedName = newName.toUpperCase()
 
             // Always update product, even if stock is 0
             const updates = {
@@ -986,18 +1003,6 @@ export function Inventory() {
                                                             if (e.key === 'Escape') cancelEditing()
                                                         }}
                                                     />
-                                                    <button
-                                                        onClick={translateProductName}
-                                                        disabled={translating || !editValues.name}
-                                                        title="Traducir al español"
-                                                        className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center transition-all bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {translating ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <span className="text-sm">🌐</span>
-                                                        )}
-                                                    </button>
                                                 </div>
                                             ) : (
                                                 <div className="truncate max-w-[150px]">{product.name}</div>
