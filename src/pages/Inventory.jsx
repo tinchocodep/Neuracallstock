@@ -835,8 +835,8 @@ export function Inventory() {
                         <table className="w-full text-left text-xs text-slate-500 dark:text-slate-400">
                             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 font-mono text-[10px] border-b border-slate-200 dark:border-slate-800">
                                 <tr>
-                                    <th className="px-3 py-2 min-w-[200px]">
-                                        <div className="flex items-center gap-2">
+                                    <th className="px-2 py-2 w-[180px]">
+                                        <div className="flex items-center gap-1">
                                             <ColumnFilter
                                                 label="PRODUCTO"
                                                 column="name"
@@ -856,7 +856,7 @@ export function Inventory() {
                                             </button>
                                         </div>
                                     </th>
-                                    <th className="px-3 py-2 min-w-[120px]">
+                                    <th className="px-2 py-2 w-[80px]">
                                         <ColumnFilter
                                             label="SKU"
                                             column="sku"
@@ -865,10 +865,10 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2 min-w-[120px]">
-                                        <div className="flex items-center gap-2">
+                                    <th className="px-2 py-2 w-[100px]">
+                                        <div className="flex items-center gap-1">
                                             <ColumnFilter
-                                                label="REFERENCIA"
+                                                label="REF."
                                                 column="referencia"
                                                 options={filterOptions.referencia}
                                                 selected={activeFilters.referencia || []}
@@ -886,7 +886,7 @@ export function Inventory() {
                                             </button>
                                         </div>
                                     </th>
-                                    <th className="px-3 py-2">
+                                    <th className="px-2 py-2 w-[70px]">
                                         <ColumnFilter
                                             label="CAT."
                                             column="category"
@@ -895,7 +895,7 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2">
+                                    <th className="px-2 py-2 w-[70px]">
                                         <ColumnFilter
                                             label="DESP."
                                             column="dispatch_number"
@@ -904,7 +904,7 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2">
+                                    <th className="px-2 py-2 w-[80px]">
                                         <ColumnFilter
                                             label="ORIGEN"
                                             column="origin"
@@ -913,7 +913,7 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2 text-right">
+                                    <th className="px-2 py-2 text-right w-[90px]">
                                         <div className="relative inline-block">
                                             <button
                                                 onClick={() => setShowPriceFilter(!showPriceFilter)}
@@ -954,9 +954,9 @@ export function Inventory() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-3 py-2 text-center pt-4" title="Stock Físico Real">STOCK</th>
-                                    <th className="px-3 py-2 text-right pt-4">VALOR TOTAL</th>
-                                    <th className="px-3 py-2 text-center pt-4">ACCIONES</th>
+                                    <th className="px-2 py-2 text-center pt-4 w-[60px]" title="Stock Físico Real">STOCK</th>
+                                    <th className="px-2 py-2 text-right pt-4 w-[90px]">VALOR</th>
+                                    <th className="px-2 py-2 text-center pt-4 w-[80px]">ACCIONES</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1003,28 +1003,28 @@ export function Inventory() {
                                                 <div className="truncate max-w-[150px]">{product.name}</div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-2 font-mono">
+                                        <td className="px-2 py-2 font-mono text-[10px]">
                                             {product.sku || 'N/A'}
                                         </td>
-                                        <td className="px-3 py-2 text-slate-400">
+                                        <td className="px-2 py-2 text-slate-400 text-[10px]">
                                             {product.referencia || '-'}
                                         </td>
-                                        <td className="px-3 py-2">
-                                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                                        <td className="px-2 py-2">
+                                            <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
                                                 {product.category || 'Varios'}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2">
-                                            <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] border border-blue-200 dark:border-blue-500/30 font-mono">
+                                        <td className="px-2 py-2">
+                                            <span className="px-1 py-0.5 rounded bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] border border-blue-200 dark:border-blue-500/30 font-mono">
                                                 {product.dispatch_number || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2">
-                                            <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] border border-amber-200 dark:border-amber-500/30">
-                                                {product.origin || 'CHINA'}
+                                        <td className="px-2 py-2">
+                                            <span className="inline-block px-1.5 py-0.5 rounded text-[9px] bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30">
+                                                {product.origin || 'N/A'}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2 text-right font-mono text-slate-700 dark:text-slate-200 text-xs">
+                                        <td className="px-2 py-2 text-right font-mono text-[10px]">
                                             {editingId === product.id ? (
                                                 <input
                                                     type="number"
@@ -1036,7 +1036,7 @@ export function Inventory() {
                                                 formatCurrency(product.price || 0)
                                             )}
                                         </td>
-                                        <td className="px-3 py-2 text-center font-bold text-xs text-slate-900 dark:text-white">
+                                        <td className="px-2 py-2 text-center">
                                             {editingId === product.id ? (
                                                 <input
                                                     type="number"
@@ -1045,22 +1045,20 @@ export function Inventory() {
                                                     onChange={(e) => handleEditChange('stock', e.target.value)}
                                                 />
                                             ) : (
-                                                formatNumber(product.stock || 0)
+                                                <span className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-[10px] font-semibold ${Number(product.stock) === 0
+                                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                                    : Number(product.stock) < 10
+                                                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+                                                        : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                                                    }`}>
+                                                    {formatNumber(product.stock || 0)}
+                                                </span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400 text-xs">
-                                            {editingId === product.id ? (
-                                                (() => {
-                                                    const price = parseFloat(editValues.price) || 0
-                                                    const stock = parseInt(editValues.stock) || 0
-                                                    const neto = price * stock
-                                                    return formatCurrency(neto)
-                                                })()
-                                            ) : (
-                                                formatCurrency(product.neto || 0)
-                                            )}
+                                        <td className="px-2 py-2 text-right font-mono font-semibold text-[10px]">
+                                            {formatCurrency((product.price || 0) * (product.stock || 0))}
                                         </td>
-                                        <td className="px-3 py-2">
+                                        <td className="px-2 py-2">
                                             <div className="flex items-center justify-end gap-2">
                                                 {getQtyInCart(product.id) > 0 ? (
                                                     <div className="flex items-center justify-end gap-2">
