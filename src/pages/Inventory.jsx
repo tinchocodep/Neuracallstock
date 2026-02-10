@@ -913,13 +913,15 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
+                                    <th className="px-2 py-2 text-right w-[90px] pt-4">PRECIO</th>
+                                    <th className="px-2 py-2 text-center pt-4 w-[60px]" title="Stock Físico Real">STOCK</th>
                                     <th className="px-2 py-2 text-right w-[90px]">
                                         <div className="relative inline-block">
                                             <button
                                                 onClick={() => setShowPriceFilter(!showPriceFilter)}
                                                 className="flex items-center gap-1 text-[10px] font-mono hover:text-cyan-500 transition-colors"
                                             >
-                                                PRECIO TOTAL
+                                                VALOR TOTAL
                                                 <ChevronDown className={`w-3 h-3 transition-transform ${showPriceFilter ? 'rotate-180' : ''}`} />
                                             </button>
                                             {showPriceFilter && (
@@ -954,8 +956,6 @@ export function Inventory() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-2 py-2 text-center pt-4 w-[60px]" title="Stock Físico Real">STOCK</th>
-                                    <th className="px-2 py-2 text-right pt-4 w-[90px]">VALOR</th>
                                     <th className="px-2 py-2 text-center pt-4 w-[80px]">ACCIONES</th>
                                 </tr>
                             </thead>
