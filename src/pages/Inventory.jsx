@@ -4,6 +4,7 @@ import {
     Search,
     ChevronDown,
     ArrowUpDown,
+    Edit2,
     Plus,
     Pen,
     Loader2,
@@ -42,6 +43,12 @@ export function Inventory() {
     // Sorting State
     const [sortColumn, setSortColumn] = useState('name')
     const [sortDirection, setSortDirection] = useState('asc')
+
+    // Category Management State
+    const [showCategoryModal, setShowCategoryModal] = useState(false)
+    const [categories, setCategories] = useState([])
+    const [editingCategory, setEditingCategory] = useState(null)
+    const [newCategoryName, setNewCategoryName] = useState('')
 
     // Cascading Filter Options
     useEffect(() => {
@@ -158,11 +165,7 @@ export function Inventory() {
                 Object.entries(activeFilters).forEach(([col, values]) => {
                     if (values.length > 0) query = query.in(col, values)
                 })
-
-                // Price range filter
-                if (priceRange[0] > 0 || priceRange[1] < 100000) {
-                    query = query.gte('price', priceRange[0]).lte('price', priceRange[1])
-                }
+                // Note: Price total filter (price × stock) is applied client-side after fetching
 
                 let countQuery = supabase
                     .from('products')
@@ -174,9 +177,7 @@ export function Inventory() {
                 Object.entries(activeFilters).forEach(([col, values]) => {
                     if (values.length > 0) countQuery = countQuery.in(col, values)
                 })
-                if (priceRange[0] > 0 || priceRange[1] < 100000) {
-                    countQuery = countQuery.gte('price', priceRange[0]).lte('price', priceRange[1])
-                }
+                // Note: Price total filter is applied client-side
 
                 const { count: searchCount, error: countError } = await countQuery
 
@@ -193,9 +194,7 @@ export function Inventory() {
                 Object.entries(activeFilters).forEach(([col, values]) => {
                     if (values.length > 0) stockQuery = stockQuery.in(col, values)
                 })
-                if (priceRange[0] > 0 || priceRange[1] < 100000) {
-                    stockQuery = stockQuery.gte('price', priceRange[0]).lte('price', priceRange[1])
-                }
+                // Note: Price total filter is applied client-side
 
                 const { data: stockData } = await stockQuery
 
@@ -224,7 +223,17 @@ export function Inventory() {
 
             const { data, error } = await query
             if (error) throw error
-            setProducts(data || [])
+
+            // Apply price total filter (price × stock) on client side
+            let filteredData = data || []
+            if (priceRange[0] > 0 || priceRange[1] < 100000) {
+                filteredData = filteredData.filter(product => {
+                    const totalPrice = (product.price || 0) * (product.stock || 0)
+                    return totalPrice >= priceRange[0] && totalPrice <= priceRange[1]
+                })
+            }
+
+            setProducts(filteredData)
 
         } catch (error) {
             console.error('Error fetching inventory:', error)
@@ -550,6 +559,147 @@ export function Inventory() {
         }
     }
 
+    // ==================== CATEGORY MANAGEMENT ====================
+
+    const fetchCategories = async () => {
+        try {
+            // Get unique categories from products
+            const { data, error } = await supabase
+                .from('products')
+                .select('category')
+                .not('category', 'is', null)
+                .order('category')
+
+            if (error) throw error
+
+            // Get unique categories
+            const uniqueCategories = [...new Set(data.map(p => p.category))].filter(Boolean)
+            setCategories(uniqueCategories.map(cat => ({ name: cat })))
+        } catch (error) {
+            console.error('Error fetching categories:', error)
+        }
+    }
+
+    const createCategory = async () => {
+        if (!newCategoryName.trim()) {
+            alert('❌ Por favor ingresá un nombre para la categoría')
+            return
+        }
+
+        const normalizedName = newCategoryName.trim().toUpperCase()
+
+        // Check if category already exists
+        if (categories.some(cat => cat.name === normalizedName)) {
+            alert('❌ Esta categoría ya existe')
+            return
+        }
+
+        // Add to local state
+        setCategories([...categories, { name: normalizedName }])
+        setNewCategoryName('')
+        alert(`✅ Categoría "${normalizedName}" creada. Ahora podés asignarla a productos.`)
+    }
+
+    const updateCategory = async (oldName, newName) => {
+        if (!newName.trim()) {
+            alert('❌ El nombre de la categoría no puede estar vacío')
+            return
+        }
+
+        const normalizedNewName = newName.trim().toUpperCase()
+
+        if (oldName === normalizedNewName) {
+            setEditingCategory(null)
+            return
+        }
+
+        const confirmed = window.confirm(
+            `⚠️ ¿Estás seguro que querés renombrar la categoría "${oldName}" a "${normalizedNewName}"?\n\n` +
+            'Esto actualizará TODOS los productos con esta categoría.'
+        )
+
+        if (!confirmed) {
+            setEditingCategory(null)
+            return
+        }
+
+        setSaving(true)
+        try {
+            // Update all products with this category
+            const { error } = await supabase
+                .from('products')
+                .update({ category: normalizedNewName })
+                .eq('category', oldName)
+
+            if (error) throw error
+
+            // Update local state
+            setCategories(categories.map(cat =>
+                cat.name === oldName ? { name: normalizedNewName } : cat
+            ))
+            setEditingCategory(null)
+            await fetchProducts()
+            alert(`✅ Categoría actualizada exitosamente`)
+        } catch (error) {
+            console.error('Error updating category:', error)
+            alert('❌ Error al actualizar la categoría: ' + error.message)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const deleteCategory = async (categoryName) => {
+        // Check how many products use this category
+        const { count, error: countError } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('category', categoryName)
+
+        if (countError) {
+            console.error('Error checking category usage:', countError)
+            alert('❌ Error al verificar el uso de la categoría')
+            return
+        }
+
+        const confirmed = window.confirm(
+            `⚠️ ¿Estás seguro que querés eliminar la categoría "${categoryName}"?\n\n` +
+            (count > 0
+                ? `Hay ${count} producto${count > 1 ? 's' : ''} usando esta categoría.\nSe les quitará la categoría.`
+                : 'No hay productos usando esta categoría.'
+            )
+        )
+
+        if (!confirmed) return
+
+        setSaving(true)
+        try {
+            // Remove category from all products
+            const { error } = await supabase
+                .from('products')
+                .update({ category: null })
+                .eq('category', categoryName)
+
+            if (error) throw error
+
+            // Update local state
+            setCategories(categories.filter(cat => cat.name !== categoryName))
+            await fetchProducts()
+            alert(`✅ Categoría eliminada exitosamente`)
+        } catch (error) {
+            console.error('Error deleting category:', error)
+            alert('❌ Error al eliminar la categoría: ' + error.message)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    // Load categories when modal opens
+    useEffect(() => {
+        if (showCategoryModal) {
+            fetchCategories()
+        }
+    }, [showCategoryModal])
+
     const displayProducts = products
 
     return (
@@ -577,6 +727,15 @@ export function Inventory() {
                         >
                             <Trash2 className="w-[18px] h-[18px]" />
                             Eliminar Stock 0
+                        </button>
+                        <button
+                            onClick={() => setShowCategoryModal(true)}
+                            disabled={loading || saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded-lg transition-colors shadow-sm"
+                            title="Gestionar categorías de productos"
+                        >
+                            <Package className="w-[18px] h-[18px]" />
+                            Categorías
                         </button>
                     </div>
                 </div>
@@ -713,7 +872,7 @@ export function Inventory() {
                                                 onClick={() => setShowPriceFilter(!showPriceFilter)}
                                                 className="flex items-center gap-1 text-[10px] font-mono hover:text-cyan-500 transition-colors"
                                             >
-                                                PRECIO
+                                                PRECIO TOTAL
                                                 <ChevronDown className={`w-3 h-3 transition-transform ${showPriceFilter ? 'rotate-180' : ''}`} />
                                             </button>
                                             {showPriceFilter && (
@@ -1010,6 +1169,131 @@ export function Inventory() {
 
 
             </div>
+
+            {/* Category Management Modal */}
+            {showCategoryModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-200 dark:border-slate-700">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Package className="w-6 h-6 text-white" />
+                                <h2 className="text-2xl font-bold text-white">Gestión de Categorías</h2>
+                            </div>
+                            <button
+                                onClick={() => setShowCategoryModal(false)}
+                                className="text-white/80 hover:text-white transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+                            {/* Create New Category */}
+                            <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                                <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-300 mb-3">Nueva Categoría</h3>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && createCategory()}
+                                        placeholder="Nombre de la categoría..."
+                                        className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    />
+                                    <button
+                                        onClick={createCategory}
+                                        disabled={saving}
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors text-sm font-medium"
+                                    >
+                                        Crear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Categories List */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                                    Categorías Existentes ({categories.length})
+                                </h3>
+                                {categories.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                                        <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                        <p>No hay categorías creadas</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {categories.map((category) => (
+                                            <div
+                                                key={category.name}
+                                                className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
+                                            >
+                                                {editingCategory === category.name ? (
+                                                    <>
+                                                        <input
+                                                            type="text"
+                                                            defaultValue={category.name}
+                                                            onKeyPress={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    updateCategory(category.name, e.target.value)
+                                                                } else if (e.key === 'Escape') {
+                                                                    setEditingCategory(null)
+                                                                }
+                                                            }}
+                                                            onBlur={(e) => updateCategory(category.name, e.target.value)}
+                                                            autoFocus
+                                                            className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        />
+                                                        <button
+                                                            onClick={() => setEditingCategory(null)}
+                                                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                            {category.name}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setEditingCategory(category.name)}
+                                                            disabled={saving}
+                                                            className="p-1.5 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                                                            title="Editar categoría"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteCategory(category.name)}
+                                                            disabled={saving}
+                                                            className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                                                            title="Eliminar categoría"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                            <button
+                                onClick={() => setShowCategoryModal(false)}
+                                className="px-6 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
