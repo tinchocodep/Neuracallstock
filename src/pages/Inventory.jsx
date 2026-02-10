@@ -592,11 +592,16 @@ export function Inventory() {
                 .eq('stock', 0)
 
             if (fetchError) throw fetchError
-            if (!zeroStockProducts || zeroStockProducts.length === 0) return
+            if (!zeroStockProducts || zeroStockProducts.length === 0) {
+                console.log('✅ No products with stock 0 found')
+                return
+            }
 
-            console.log(`🗑️ Auto-deleting ${zeroStockProducts.length} products with stock 0`)
+            console.log(`🗑️ Found ${zeroStockProducts.length} products with stock 0`)
+            console.log(`🔍 Checking which ones can be deleted...`)
 
             let deletedCount = 0
+            let skippedCount = 0
 
             // Delete each product (checking for invoice references)
             for (const product of zeroStockProducts) {
@@ -609,6 +614,8 @@ export function Inventory() {
 
                     if (checkError || (count && count > 0)) {
                         // Skip products that are in invoices or have errors
+                        skippedCount++
+                        console.log(`⏭️ Skipped "${product.name}" (in ${count} invoices)`)
                         continue
                     }
 
@@ -620,18 +627,26 @@ export function Inventory() {
 
                     if (!deleteError) {
                         deletedCount++
+                        console.log(`🗑️ Deleted "${product.name}"`)
                     }
                 } catch (err) {
                     // Silent error handling
-                    console.error(`Error deleting ${product.name}:`, err)
+                    skippedCount++
+                    console.error(`❌ Error deleting "${product.name}":`, err.message)
                 }
             }
 
+            console.log(`\n✅ Auto-delete complete!`)
+            console.log(`   • Deleted: ${deletedCount}`)
+            console.log(`   • Skipped: ${skippedCount} (in invoices or errors)`)
+
             if (deletedCount > 0) {
-                console.log(`✅ Auto-deleted ${deletedCount} products with stock 0`)
+                // Refresh products to remove deleted ones from view
+                console.log('🔄 Refreshing inventory...')
+                await fetchProducts()
             }
         } catch (error) {
-            console.error('Error in auto-delete zero stock:', error)
+            console.error('❌ Error in auto-delete zero stock:', error)
         }
     }
 
