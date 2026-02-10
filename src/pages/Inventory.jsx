@@ -637,8 +637,15 @@ export function Inventory() {
 
     const autoTranslateProducts = async () => {
         // Automatic translation of products from English to Spanish (silent, in background)
+        // Only runs once per session to avoid repeated translations
+        const hasTranslated = sessionStorage.getItem('hasAutoTranslated')
+        if (hasTranslated) {
+            console.log('⏭️ Auto-translation already ran this session')
+            return
+        }
+
         try {
-            // Get all products
+            // Get products that need translation (not already in uppercase)
             const { data: allProducts, error: fetchError } = await supabase
                 .from('products')
                 .select('id, name')
@@ -646,13 +653,30 @@ export function Inventory() {
             if (fetchError) throw fetchError
             if (!allProducts || allProducts.length === 0) return
 
-            console.log(`🌐 Auto-translating ${allProducts.length} products to Spanish...`)
+            // Filter products that likely need translation
+            const productsToTranslate = allProducts.filter(product => {
+                // Skip if already all uppercase (likely already translated)
+                return product.name !== product.name.toUpperCase()
+            })
+
+            if (productsToTranslate.length === 0) {
+                console.log('✅ All products are already translated')
+                sessionStorage.setItem('hasAutoTranslated', 'true')
+                return
+            }
+
+            console.log(`🌐 Auto-translating ${productsToTranslate.length} of ${allProducts.length} products...`)
 
             let translatedCount = 0
-            const batchSize = 10 // Translate in batches to avoid rate limiting
+            let errorCount = 0
+            const batchSize = 15 // Increased batch size for better performance
+            const totalBatches = Math.ceil(productsToTranslate.length / batchSize)
 
-            for (let i = 0; i < allProducts.length; i += batchSize) {
-                const batch = allProducts.slice(i, i + batchSize)
+            for (let i = 0; i < productsToTranslate.length; i += batchSize) {
+                const batch = productsToTranslate.slice(i, i + batchSize)
+                const currentBatch = Math.floor(i / batchSize) + 1
+
+                console.log(`📦 Processing batch ${currentBatch}/${totalBatches}...`)
 
                 await Promise.all(batch.map(async (product) => {
                     try {
@@ -673,30 +697,38 @@ export function Inventory() {
 
                                 if (!updateError) {
                                     translatedCount++
-                                    console.log(`✅ Translated: "${product.name}" → "${translatedName}"`)
+                                    console.log(`✅ [${translatedCount}/${productsToTranslate.length}] "${product.name}" → "${translatedName}"`)
+                                } else {
+                                    errorCount++
                                 }
                             }
                         }
                     } catch (err) {
-                        console.error(`Error translating ${product.name}:`, err)
+                        errorCount++
+                        console.error(`❌ Error translating "${product.name}":`, err.message)
                     }
                 }))
 
-                // Small delay between batches to avoid rate limiting
-                if (i + batchSize < allProducts.length) {
-                    await new Promise(resolve => setTimeout(resolve, 500))
+                // Delay between batches to avoid rate limiting
+                if (i + batchSize < productsToTranslate.length) {
+                    await new Promise(resolve => setTimeout(resolve, 300))
                 }
             }
 
+            console.log(`\n✅ Translation complete!`)
+            console.log(`   • Translated: ${translatedCount}`)
+            console.log(`   • Errors: ${errorCount}`)
+            console.log(`   • Skipped: ${productsToTranslate.length - translatedCount - errorCount}`)
+
+            // Mark as translated for this session
+            sessionStorage.setItem('hasAutoTranslated', 'true')
+
             if (translatedCount > 0) {
-                console.log(`✅ Auto-translated ${translatedCount} products`)
                 // Refresh products to show translated names
                 fetchProducts()
-            } else {
-                console.log('✅ All products are already in Spanish')
             }
         } catch (error) {
-            console.error('Error in auto-translate:', error)
+            console.error('❌ Error in auto-translate:', error)
         }
     }
 
