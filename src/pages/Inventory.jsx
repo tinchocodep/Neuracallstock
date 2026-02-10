@@ -335,9 +335,12 @@ export function Inventory() {
             const originalName = currentProduct?.name
             const newName = editValues.name
 
+            // 🔄 AUTO-NORMALIZE: Convert name to UPPERCASE
+            const normalizedName = editValues.name.toUpperCase()
+
             // Always update product, even if stock is 0
             const updates = {
-                name: editValues.name,
+                name: normalizedName,
                 price: parseFloat(editValues.price) || 0,
                 stock: newStock
             }
@@ -352,7 +355,7 @@ export function Inventory() {
             setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
 
             // Check if name was changed (likely a translation)
-            if (originalName && originalName !== newName) {
+            if (originalName && originalName !== normalizedName) {
                 // Count how many other products have the same original name
                 const { count } = await supabase
                     .from('products')
@@ -364,14 +367,14 @@ export function Inventory() {
                     // Ask user if they want to apply translation to all duplicates
                     const applyToAll = window.confirm(
                         `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\n\n` +
-                        `¿Quieres traducirlos todos a "${newName}"?`
+                        `¿Quieres traducirlos todos a "${normalizedName}"?`
                     )
 
                     if (applyToAll) {
                         // Update all products with the same original name
                         const { error: batchError } = await supabase
                             .from('products')
-                            .update({ name: newName })
+                            .update({ name: normalizedName })
                             .eq('name', originalName)
 
                         if (batchError) {
