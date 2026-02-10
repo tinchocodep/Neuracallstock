@@ -226,6 +226,10 @@ export function Inventory() {
 
             // Apply price total filter (price × stock) on client side
             let filteredData = data || []
+
+            // Filter out products with stock 0 (keep them in DB for invoice history)
+            filteredData = filteredData.filter(product => (product.stock || 0) > 0)
+
             if (priceRange[0] > 0 || priceRange[1] < 100000) {
                 filteredData = filteredData.filter(product => {
                     const totalPrice = (product.price || 0) * (product.stock || 0)
