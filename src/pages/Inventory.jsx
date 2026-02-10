@@ -238,6 +238,9 @@ export function Inventory() {
             // Auto-delete products with stock 0 (silent, in background)
             autoDeleteZeroStockProducts()
 
+            // Auto-translate products with non-Spanish names (silent, in background)
+            autoTranslateProducts()
+
         } catch (error) {
             console.error('Error fetching inventory:', error)
         } finally {
@@ -629,6 +632,74 @@ export function Inventory() {
             }
         } catch (error) {
             console.error('Error in auto-delete zero stock:', error)
+        }
+    }
+
+    const autoTranslateProducts = async () => {
+        // Automatic translation of products with non-Spanish names (silent, in background)
+        try {
+            // Get all products
+            const { data: allProducts, error: fetchError } = await supabase
+                .from('products')
+                .select('id, name')
+
+            if (fetchError) throw fetchError
+            if (!allProducts || allProducts.length === 0) return
+
+            // Filter products that need translation (have non-Spanish characters)
+            const productsToTranslate = allProducts.filter(product => {
+                const hasNonSpanishChars = /[^\u0000-\u007F\u00C0-\u00FF\u0100-\u017F\u0180-\u024F\s\d\-_.,;:!?()\[\]{}'"\/\\@#$%&*+=<>|~`^]/.test(product.name)
+                return hasNonSpanishChars
+            })
+
+            if (productsToTranslate.length === 0) return
+
+            console.log(`🌐 Auto-translating ${productsToTranslate.length} products...`)
+
+            let translatedCount = 0
+            const batchSize = 5 // Translate in batches to avoid rate limiting
+
+            for (let i = 0; i < productsToTranslate.length; i += batchSize) {
+                const batch = productsToTranslate.slice(i, i + batchSize)
+
+                await Promise.all(batch.map(async (product) => {
+                    try {
+                        // Translate to Spanish
+                        const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=' + encodeURIComponent(product.name))
+                        const data = await response.json()
+
+                        if (data && data[0] && data[0][0] && data[0][0][0]) {
+                            const translatedName = data[0][0][0].toUpperCase()
+
+                            // Update product in database
+                            const { error: updateError } = await supabase
+                                .from('products')
+                                .update({ name: translatedName })
+                                .eq('id', product.id)
+
+                            if (!updateError) {
+                                translatedCount++
+                                console.log(`✅ Translated: "${product.name}" → "${translatedName}"`)
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Error translating ${product.name}:`, err)
+                    }
+                }))
+
+                // Small delay between batches to avoid rate limiting
+                if (i + batchSize < productsToTranslate.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000))
+                }
+            }
+
+            if (translatedCount > 0) {
+                console.log(`✅ Auto-translated ${translatedCount} products`)
+                // Refresh products to show translated names
+                fetchProducts()
+            }
+        } catch (error) {
+            console.error('Error in auto-translate:', error)
         }
     }
 
