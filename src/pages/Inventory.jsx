@@ -668,28 +668,39 @@ export function Inventory() {
 
                 await Promise.all(batch.map(async (product) => {
                     try {
+                        console.log(`🔍 Translating: "${product.name}"`)
+
                         // Translate from English to Spanish
                         const response = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=' + encodeURIComponent(product.name))
                         const data = await response.json()
 
+                        console.log(`📥 API Response for "${product.name}":`, data[0]?.[0]?.[0])
+
                         if (data && data[0] && data[0][0] && data[0][0][0]) {
                             const translatedName = data[0][0][0].toUpperCase()
+                            const originalName = product.name
 
-                            // Only update if translation is different from original
-                            if (translatedName !== product.name.toUpperCase()) {
-                                // Update product in database
-                                const { error: updateError } = await supabase
-                                    .from('products')
-                                    .update({ name: translatedName })
-                                    .eq('id', product.id)
+                            console.log(`🔄 Will update "${originalName}" → "${translatedName}"`)
 
-                                if (!updateError) {
-                                    translatedCount++
-                                    console.log(`✅ [${translatedCount}/${allProducts.length}] "${product.name}" → "${translatedName}"`)
+                            // Always update with translation
+                            const { error: updateError } = await supabase
+                                .from('products')
+                                .update({ name: translatedName })
+                                .eq('id', product.id)
+
+                            if (!updateError) {
+                                translatedCount++
+                                if (translatedName !== originalName) {
+                                    console.log(`✅ [${translatedCount}/${allProducts.length}] "${originalName}" → "${translatedName}"`)
                                 } else {
-                                    errorCount++
+                                    console.log(`⏭️ [${translatedCount}/${allProducts.length}] "${originalName}" (sin cambios)`)
                                 }
+                            } else {
+                                errorCount++
+                                console.error(`❌ Error updating "${originalName}":`, updateError.message)
                             }
+                        } else {
+                            console.error(`❌ Invalid API response for "${product.name}"`)
                         }
                     } catch (err) {
                         errorCount++
