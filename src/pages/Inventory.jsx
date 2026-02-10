@@ -39,6 +39,10 @@ export function Inventory() {
         origin: []
     })
 
+    // Sorting State
+    const [sortColumn, setSortColumn] = useState('name')
+    const [sortDirection, setSortDirection] = useState('asc')
+
     // Cascading Filter Options
     useEffect(() => {
         const fetchCascadingOptions = async () => {
@@ -78,6 +82,18 @@ export function Inventory() {
             }
             return newFilters
         })
+        setPage(0)
+    }
+
+    const handleSort = (column) => {
+        if (sortColumn === column) {
+            // Toggle direction if same column
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+        } else {
+            // New column, default to ascending
+            setSortColumn(column)
+            setSortDirection('asc')
+        }
         setPage(0)
     }
 
@@ -123,7 +139,7 @@ export function Inventory() {
         }, 500)
 
         return () => clearTimeout(delayDebounceFn)
-    }, [page, pageSize, searchTerm, activeFilters, priceRange])
+    }, [page, pageSize, searchTerm, activeFilters, priceRange, sortColumn, sortDirection])
 
     const fetchProducts = async () => {
         setLoading(true)
@@ -131,7 +147,7 @@ export function Inventory() {
             let query = supabase
                 .from('products')
                 .select('*')
-                .order('name', { ascending: true })
+                .order(sortColumn, { ascending: sortDirection === 'asc' })
                 .range(page * pageSize, (page + 1) * pageSize - 1)
 
             if (searchTerm || Object.keys(activeFilters).length > 0) {
@@ -438,6 +454,99 @@ export function Inventory() {
         }
     }
 
+    const deleteZeroStockProducts = async () => {
+        // Confirm action
+        const confirmed = window.confirm(
+            '⚠️ ¿Estás seguro que querés eliminar TODOS los productos con stock 0?\\n\\n' +
+            'Esta acción eliminará permanentemente los productos que no estén en facturas.\\n\\n' +
+            'Los productos que estén en facturas NO serán eliminados.'
+        )
+
+        if (!confirmed) return
+
+        setSaving(true)
+        try {
+            // Get all products with stock 0
+            const { data: zeroStockProducts, error: fetchError } = await supabase
+                .from('products')
+                .select('id, name')
+                .eq('stock', 0)
+
+            if (fetchError) throw fetchError
+
+            if (!zeroStockProducts || zeroStockProducts.length === 0) {
+                alert('✅ No hay productos con stock 0 para eliminar')
+                setSaving(false)
+                return
+            }
+
+            console.log(`Found ${zeroStockProducts.length} products with stock 0`)
+
+            let deletedCount = 0
+            let skippedCount = 0
+            const errors = []
+
+            // Delete each product (checking for invoice references)
+            for (const product of zeroStockProducts) {
+                try {
+                    // Check if product is in any invoice
+                    const { count, error: checkError } = await supabase
+                        .from('invoice_items')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('product_id', product.id)
+
+                    if (checkError) {
+                        errors.push(`Error checking ${product.name}: ${checkError.message}`)
+                        continue
+                    }
+
+                    if (count && count > 0) {
+                        // Skip products that are in invoices
+                        skippedCount++
+                        console.log(`Skipping ${product.name} (in ${count} invoices)`)
+                        continue
+                    }
+
+                    // Delete product
+                    const { error: deleteError } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', product.id)
+
+                    if (deleteError) {
+                        errors.push(`Error deleting ${product.name}: ${deleteError.message}`)
+                    } else {
+                        deletedCount++
+                        console.log(`Deleted ${product.name}`)
+                    }
+                } catch (err) {
+                    errors.push(`Error processing ${product.name}: ${err.message}`)
+                }
+            }
+
+            // Show results
+            let message = `✅ Operación completada:\\n\\n`
+            message += `• Productos eliminados: ${deletedCount}\\n`
+            if (skippedCount > 0) {
+                message += `• Productos omitidos (en facturas): ${skippedCount}\\n`
+            }
+            if (errors.length > 0) {
+                message += `\\n⚠️ Errores: ${errors.length}\\n`
+                console.error('Deletion errors:', errors)
+            }
+
+            alert(message)
+
+            // Refresh products list
+            await fetchProducts()
+        } catch (error) {
+            console.error('Error deleting zero stock products:', error)
+            alert('❌ Error al eliminar productos: ' + error.message)
+        } finally {
+            setSaving(false)
+        }
+    }
+
     const displayProducts = products
 
     return (
@@ -448,14 +557,25 @@ export function Inventory() {
                         <h2 className="text-3xl font-bold text-slate-900 dark:text-white transition-colors">Gestión de Inventario</h2>
                         <p className="text-slate-500 dark:text-slate-400">Administra el stock físico de Neuracall.</p>
                     </div>
-                    <button
-                        onClick={fetchProducts}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg transition-colors shadow-sm"
-                    >
-                        {loading ? <Loader2 className="animate-spin w-[18px] h-[18px]" /> : <RefreshCw className="w-[18px] h-[18px]" />}
-                        Sincronizar
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={fetchProducts}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg transition-colors shadow-sm"
+                        >
+                            {loading ? <Loader2 className="animate-spin w-[18px] h-[18px]" /> : <RefreshCw className="w-[18px] h-[18px]" />}
+                            Sincronizar
+                        </button>
+                        <button
+                            onClick={deleteZeroStockProducts}
+                            disabled={loading || saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors shadow-sm"
+                            title="Eliminar todos los productos con stock 0"
+                        >
+                            <Trash2 className="w-[18px] h-[18px]" />
+                            Eliminar Stock 0
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -507,23 +627,55 @@ export function Inventory() {
                             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 font-mono text-[10px] border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-3 py-2 min-w-[200px]">
+                                        <div className="flex items-center gap-2">
+                                            <ColumnFilter
+                                                label="PRODUCTO"
+                                                column="name"
+                                                options={filterOptions.name}
+                                                selected={activeFilters.name || []}
+                                                onFilter={handleFilterChange}
+                                            />
+                                            <button
+                                                onClick={() => handleSort('name')}
+                                                className={`p-1 rounded transition-colors ${sortColumn === 'name'
+                                                    ? 'text-cyan-500 bg-cyan-500/10'
+                                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                                    }`}
+                                                title={`Ordenar por producto ${sortColumn === 'name' ? (sortDirection === 'asc' ? '(A-Z)' : '(Z-A)') : ''}`}
+                                            >
+                                                <ArrowUpDown className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th className="px-3 py-2 min-w-[120px]">
                                         <ColumnFilter
-                                            label="PRODUCTO"
-                                            column="name"
-                                            options={filterOptions.name}
-                                            selected={activeFilters.name || []}
+                                            label="SKU"
+                                            column="sku"
+                                            options={filterOptions.sku}
+                                            selected={activeFilters.sku || []}
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2 min-w-[120px]">SKU</th>
                                     <th className="px-3 py-2 min-w-[120px]">
-                                        <ColumnFilter
-                                            label="REFERENCIA"
-                                            column="referencia"
-                                            options={filterOptions.referencia}
-                                            selected={activeFilters.referencia || []}
-                                            onFilter={handleFilterChange}
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            <ColumnFilter
+                                                label="REFERENCIA"
+                                                column="referencia"
+                                                options={filterOptions.referencia}
+                                                selected={activeFilters.referencia || []}
+                                                onFilter={handleFilterChange}
+                                            />
+                                            <button
+                                                onClick={() => handleSort('referencia')}
+                                                className={`p-1 rounded transition-colors ${sortColumn === 'referencia'
+                                                    ? 'text-cyan-500 bg-cyan-500/10'
+                                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                                    }`}
+                                                title={`Ordenar por referencia ${sortColumn === 'referencia' ? (sortDirection === 'asc' ? '(A-Z)' : '(Z-A)') : ''}`}
+                                            >
+                                                <ArrowUpDown className="w-3 h-3" />
+                                            </button>
+                                        </div>
                                     </th>
                                     <th className="px-3 py-2">
                                         <ColumnFilter
@@ -543,7 +695,15 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-3 py-2 text-center pt-4">ORIGEN</th>
+                                    <th className="px-3 py-2">
+                                        <ColumnFilter
+                                            label="ORIGEN"
+                                            column="origin"
+                                            options={filterOptions.origin}
+                                            selected={activeFilters.origin || []}
+                                            onFilter={handleFilterChange}
+                                        />
+                                    </th>
                                     <th className="px-3 py-2 text-right">
                                         <div className="relative inline-block">
                                             <button
