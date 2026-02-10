@@ -235,6 +235,9 @@ export function Inventory() {
 
             setProducts(filteredData)
 
+            // Auto-delete products with stock 0 (silent, in background)
+            autoDeleteZeroStockProducts()
+
         } catch (error) {
             console.error('Error fetching inventory:', error)
         } finally {
@@ -559,6 +562,59 @@ export function Inventory() {
         }
     }
 
+    const autoDeleteZeroStockProducts = async () => {
+        // Automatic deletion of products with stock 0 (silent, no confirmations)
+        try {
+            // Get all products with stock 0
+            const { data: zeroStockProducts, error: fetchError } = await supabase
+                .from('products')
+                .select('id, name')
+                .eq('stock', 0)
+
+            if (fetchError) throw fetchError
+            if (!zeroStockProducts || zeroStockProducts.length === 0) return
+
+            console.log(`🗑️ Auto-deleting ${zeroStockProducts.length} products with stock 0`)
+
+            let deletedCount = 0
+
+            // Delete each product (checking for invoice references)
+            for (const product of zeroStockProducts) {
+                try {
+                    // Check if product is in any invoice
+                    const { count, error: checkError } = await supabase
+                        .from('invoice_items')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('product_id', product.id)
+
+                    if (checkError || (count && count > 0)) {
+                        // Skip products that are in invoices or have errors
+                        continue
+                    }
+
+                    // Delete product
+                    const { error: deleteError } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', product.id)
+
+                    if (!deleteError) {
+                        deletedCount++
+                    }
+                } catch (err) {
+                    // Silent error handling
+                    console.error(`Error deleting ${product.name}:`, err)
+                }
+            }
+
+            if (deletedCount > 0) {
+                console.log(`✅ Auto-deleted ${deletedCount} products with stock 0`)
+            }
+        } catch (error) {
+            console.error('Error in auto-delete zero stock:', error)
+        }
+    }
+
     // ==================== CATEGORY MANAGEMENT ====================
 
     const fetchCategories = async () => {
@@ -718,15 +774,6 @@ export function Inventory() {
                         >
                             {loading ? <Loader2 className="animate-spin w-[18px] h-[18px]" /> : <RefreshCw className="w-[18px] h-[18px]" />}
                             Sincronizar
-                        </button>
-                        <button
-                            onClick={deleteZeroStockProducts}
-                            disabled={loading || saving}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors shadow-sm"
-                            title="Eliminar todos los productos con stock 0"
-                        >
-                            <Trash2 className="w-[18px] h-[18px]" />
-                            Eliminar Stock 0
                         </button>
                         <button
                             onClick={() => setShowCategoryModal(true)}
