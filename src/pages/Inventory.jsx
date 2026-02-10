@@ -25,12 +25,21 @@ export function Inventory() {
     const [loading, setLoading] = useState(true)
     const [totalProducts, setTotalProducts] = useState(0)
     const [totalStock, setTotalStock] = useState(0)
-    const [searchTerm, setSearchTerm] = useState('')
-    const [priceRange, setPriceRange] = useState([0, 100000])
+    const [searchTerm, setSearchTerm] = useState(() => {
+        const saved = localStorage.getItem('inventory_searchTerm')
+        return saved || ''
+    })
+    const [priceRange, setPriceRange] = useState(() => {
+        const saved = localStorage.getItem('inventory_priceRange')
+        return saved ? JSON.parse(saved) : [0, 100000]
+    })
     const [showPriceFilter, setShowPriceFilter] = useState(false)
 
-    // Column Filters State
-    const [activeFilters, setActiveFilters] = useState({})
+    // Column Filters State (with localStorage persistence)
+    const [activeFilters, setActiveFilters] = useState(() => {
+        const saved = localStorage.getItem('inventory_activeFilters')
+        return saved ? JSON.parse(saved) : {}
+    })
     const [filterOptions, setFilterOptions] = useState({
         name: [],
         sku: [],
@@ -40,9 +49,15 @@ export function Inventory() {
         origin: []
     })
 
-    // Sorting State
-    const [sortColumn, setSortColumn] = useState('name')
-    const [sortDirection, setSortDirection] = useState('asc')
+    // Sorting State (with localStorage persistence)
+    const [sortColumn, setSortColumn] = useState(() => {
+        const saved = localStorage.getItem('inventory_sortColumn')
+        return saved || 'name'
+    })
+    const [sortDirection, setSortDirection] = useState(() => {
+        const saved = localStorage.getItem('inventory_sortDirection')
+        return saved || 'asc'
+    })
 
     // Category Management State
     const [showCategoryModal, setShowCategoryModal] = useState(false)
@@ -78,6 +93,27 @@ export function Inventory() {
         }
         fetchCascadingOptions()
     }, [activeFilters])
+
+    // Persist filters and search state to localStorage
+    useEffect(() => {
+        localStorage.setItem('inventory_searchTerm', searchTerm)
+    }, [searchTerm])
+
+    useEffect(() => {
+        localStorage.setItem('inventory_priceRange', JSON.stringify(priceRange))
+    }, [priceRange])
+
+    useEffect(() => {
+        localStorage.setItem('inventory_activeFilters', JSON.stringify(activeFilters))
+    }, [activeFilters])
+
+    useEffect(() => {
+        localStorage.setItem('inventory_sortColumn', sortColumn)
+    }, [sortColumn])
+
+    useEffect(() => {
+        localStorage.setItem('inventory_sortDirection', sortDirection)
+    }, [sortDirection])
 
     const handleFilterChange = (column, selectedValues) => {
         setActiveFilters(prev => {
@@ -136,7 +172,7 @@ export function Inventory() {
 
     // Edit State
     const [editingId, setEditingId] = useState(null)
-    const [editValues, setEditValues] = useState({ name: '', price: '', stock: '' })
+    const [editValues, setEditValues] = useState({ name: '', price: '', stock: '', category: '' })
     const [saving, setSaving] = useState(false)
     const [translating, setTranslating] = useState(false)
 
@@ -271,13 +307,14 @@ export function Inventory() {
         setEditValues({
             name: product.name,
             price: product.price,
-            stock: product.stock
+            stock: product.stock,
+            category: product.category
         })
     }
 
     const cancelEditing = () => {
         setEditingId(null)
-        setEditValues({ name: '', price: '', stock: '' })
+        setEditValues({ name: '', price: '', stock: '', category: '' })
     }
 
     const handleEditChange = (field, value) => {
@@ -373,12 +410,15 @@ export function Inventory() {
 
             // 🔄 AUTO-NORMALIZE: Convert name to UPPERCASE
             const normalizedName = newName.toUpperCase()
+            const originalCategory = currentProduct?.category
+            const newCategory = editValues.category
 
             // Always update product, even if stock is 0
             const updates = {
                 name: normalizedName,
                 price: parseFloat(editValues.price) || 0,
-                stock: newStock
+                stock: newStock,
+                category: newCategory
             }
 
             const { error } = await supabase
@@ -389,6 +429,41 @@ export function Inventory() {
             if (error) throw error
 
             setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
+
+            // Check if category was changed
+            if (originalCategory !== newCategory && normalizedName) {
+                // Count how many other products have the same name
+                const { count } = await supabase
+                    .from('products')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('name', normalizedName)
+                    .neq('id', id)
+
+                if (count && count > 0) {
+                    // Ask user if they want to apply category change to all products with same name
+                    const applyToAll = window.confirm(
+                        `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${normalizedName}".\\n\\n` +
+                        `¿Quieres cambiar la categoría de todos a "${newCategory || 'Varios'}"?`
+                    )
+
+                    if (applyToAll) {
+                        // Update all products with the same name
+                        const { error: batchError } = await supabase
+                            .from('products')
+                            .update({ category: newCategory })
+                            .eq('name', normalizedName)
+
+                        if (batchError) {
+                            console.error('Error updating category for duplicates:', batchError)
+                            alert('Error al actualizar categoría de productos duplicados')
+                        } else {
+                            // Refresh products to show updated categories
+                            await fetchProducts()
+                            alert(`✅ ${count} producto${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} exitosamente!`)
+                        }
+                    }
+                }
+            }
 
             // Check if name was changed (likely a translation)
             if (originalName && originalName !== normalizedName) {
@@ -402,7 +477,7 @@ export function Inventory() {
                 if (count && count > 0) {
                     // Ask user if they want to apply translation to all duplicates
                     const applyToAll = window.confirm(
-                        `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\n\n` +
+                        `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${originalName}".\\n\\n` +
                         `¿Quieres traducirlos todos a "${normalizedName}"?`
                     )
 
@@ -1169,9 +1244,22 @@ export function Inventory() {
                                             {product.referencia || '-'}
                                         </td>
                                         <td className="px-2 py-2">
-                                            <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
-                                                {product.category || 'Varios'}
-                                            </span>
+                                            {editingId === product.id ? (
+                                                <select
+                                                    className="w-full bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-2 py-1 text-[10px] outline-none"
+                                                    value={editValues.category || ''}
+                                                    onChange={(e) => handleEditChange('category', e.target.value)}
+                                                >
+                                                    <option value="">Varios</option>
+                                                    {categories.map(cat => (
+                                                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                                                    {product.category || 'Varios'}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-2 py-2">
                                             <span className="px-1 py-0.5 rounded bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] border border-blue-200 dark:border-blue-500/30 font-mono">
