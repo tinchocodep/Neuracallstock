@@ -645,7 +645,7 @@ export function Inventory() {
         }
 
         try {
-            // Get products that need translation (not already in uppercase)
+            // Get ALL products to translate
             const { data: allProducts, error: fetchError } = await supabase
                 .from('products')
                 .select('id, name')
@@ -653,27 +653,15 @@ export function Inventory() {
             if (fetchError) throw fetchError
             if (!allProducts || allProducts.length === 0) return
 
-            // Filter products that likely need translation
-            const productsToTranslate = allProducts.filter(product => {
-                // Skip if already all uppercase (likely already translated)
-                return product.name !== product.name.toUpperCase()
-            })
-
-            if (productsToTranslate.length === 0) {
-                console.log('✅ All products are already translated')
-                sessionStorage.setItem('hasAutoTranslated', 'true')
-                return
-            }
-
-            console.log(`🌐 Auto-translating ${productsToTranslate.length} of ${allProducts.length} products...`)
+            console.log(`🌐 Auto-translating ${allProducts.length} products...`)
 
             let translatedCount = 0
             let errorCount = 0
             const batchSize = 15 // Increased batch size for better performance
-            const totalBatches = Math.ceil(productsToTranslate.length / batchSize)
+            const totalBatches = Math.ceil(allProducts.length / batchSize)
 
-            for (let i = 0; i < productsToTranslate.length; i += batchSize) {
-                const batch = productsToTranslate.slice(i, i + batchSize)
+            for (let i = 0; i < allProducts.length; i += batchSize) {
+                const batch = allProducts.slice(i, i + batchSize)
                 const currentBatch = Math.floor(i / batchSize) + 1
 
                 console.log(`📦 Processing batch ${currentBatch}/${totalBatches}...`)
@@ -697,7 +685,7 @@ export function Inventory() {
 
                                 if (!updateError) {
                                     translatedCount++
-                                    console.log(`✅ [${translatedCount}/${productsToTranslate.length}] "${product.name}" → "${translatedName}"`)
+                                    console.log(`✅ [${translatedCount}/${allProducts.length}] "${product.name}" → "${translatedName}"`)
                                 } else {
                                     errorCount++
                                 }
@@ -710,7 +698,7 @@ export function Inventory() {
                 }))
 
                 // Delay between batches to avoid rate limiting
-                if (i + batchSize < productsToTranslate.length) {
+                if (i + batchSize < allProducts.length) {
                     await new Promise(resolve => setTimeout(resolve, 300))
                 }
             }
@@ -718,7 +706,7 @@ export function Inventory() {
             console.log(`\n✅ Translation complete!`)
             console.log(`   • Translated: ${translatedCount}`)
             console.log(`   • Errors: ${errorCount}`)
-            console.log(`   • Skipped: ${productsToTranslate.length - translatedCount - errorCount}`)
+            console.log(`   • Skipped: ${allProducts.length - translatedCount - errorCount}`)
 
             // Mark as translated for this session
             sessionStorage.setItem('hasAutoTranslated', 'true')
