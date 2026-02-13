@@ -366,9 +366,9 @@ export function Billing() {
                 let companyId = '7f85f721-c30a-4195-a393-f5b00beebfd9' // Default fallback
 
                 if (user) {
-                    // Try to get company_id from user metadata or profile
+                    // Try to get company_id from user_profiles table
                     const { data: profile } = await supabase
-                        .from('profiles')
+                        .from('user_profiles')
                         .select('company_id')
                         .eq('id', user.id)
                         .single()
