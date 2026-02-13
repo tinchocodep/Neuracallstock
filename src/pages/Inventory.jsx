@@ -279,7 +279,8 @@ export function Inventory() {
             autoDeleteZeroStockProducts()
 
             // Auto-translate products with non-Spanish names (silent, in background)
-            autoTranslateProducts()
+            // DESACTIVADO: Solo se ejecuta manualmente con el botón "Traducir Todo"
+            // autoTranslateProducts()
 
         } catch (error) {
             console.error('Error fetching inventory:', error)

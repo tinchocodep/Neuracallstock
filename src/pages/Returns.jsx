@@ -372,7 +372,7 @@ function ReturnDetails({ invoice, setCreditNoteResult, setSelectedInvoice }) {
             // Obtener webhook específico de la compañía del usuario
             const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
                 import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
-                'https://n8n.neuracall.net/webhook-test/NeuraUSUARIOPRUEBA'
+                'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
 
             // Prepare items to return
             const itemsToReturn = invoice.items
