@@ -49,9 +49,8 @@ export const useCompanyConfig = () => {
                     companyName: company.name,
                     cuit: company.configuration?.cuit || null,
                     webhooks: {
-                        invoiceGeneration: company.configuration?.webhooks?.invoice_generation ||
-                            import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
-                            'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA',
+                        // PRODUCCIÓN: Usar webhook de producción (no test)
+                        invoiceGeneration: 'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA',
                         arcaLookup: company.configuration?.webhooks?.arca_lookup || '',
                         emailInvoice: company.configuration?.webhooks?.email_invoice || '',
                         paymentOrder: company.configuration?.webhooks?.payment_order || ''

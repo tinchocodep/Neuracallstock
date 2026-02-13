@@ -199,10 +199,8 @@ export function Billing() {
     const handleGenerateInvoice = async () => {
         setIsSubmitting(true)
         try {
-            // Obtener webhook específico de la compañía del usuario
-            const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
-                import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
-                'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
+            // PRODUCCIÓN: Usar webhook de producción (no test)
+            const webhookUrl = 'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
 
             const payload = {
                 type: invoiceType,

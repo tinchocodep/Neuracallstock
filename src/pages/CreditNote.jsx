@@ -32,10 +32,8 @@ export function CreditNote() {
         setPdfUrl(null)
 
         try {
-            // Obtener webhook específico de la compañía del usuario
-            const webhookUrl = companyConfig?.webhooks?.invoiceGeneration ||
-                import.meta.env.VITE_INVOICE_WEBHOOK_URL ||
-                'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
+            // PRODUCCIÓN: Usar webhook de producción (no test)
+            const webhookUrl = 'https://n8n.neuracall.net/webhook/NeuraUSUARIOPRUEBA'
 
             if (!webhookUrl) {
                 throw new Error('Webhook URL no configurada')
