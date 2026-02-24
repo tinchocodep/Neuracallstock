@@ -68,26 +68,22 @@ export function Inventory() {
     // Cascading Filter Options
     useEffect(() => {
         const fetchCascadingOptions = async () => {
-            let baseQuery = supabase
-                .from('products')
-                .select('name, sku, referencia, category, dispatch_number, origin')
+            // Use RPC for efficient DISTINCT values across all 14k+ products
+            const { data, error } = await supabase.rpc('get_product_filter_options')
 
-            Object.entries(activeFilters).forEach(([col, values]) => {
-                if (values.length > 0) baseQuery = baseQuery.in(col, values)
-            })
-
-            const { data } = await baseQuery
+            if (error) {
+                console.error('Error fetching filter options:', error)
+                return
+            }
 
             if (data) {
-                const getOptions = (key) => [...new Set(data.map(i => i[key]).filter(Boolean))].sort()
-
                 setFilterOptions({
-                    name: getOptions('name'),
-                    sku: getOptions('sku'),
-                    referencia: getOptions('referencia'),
-                    category: getOptions('category'),
-                    dispatch_number: getOptions('dispatch_number'),
-                    origin: getOptions('origin'),
+                    name: data.names || [],
+                    sku: data.skus || [],
+                    referencia: data.referencias || [],
+                    category: data.categories || [],
+                    dispatch_number: data.dispatch_numbers || [],
+                    origin: data.origins || [],
                 })
             }
         }
@@ -187,6 +183,18 @@ export function Inventory() {
     const fetchProducts = async () => {
         setLoading(true)
         try {
+            // Lookup dispatches by description to allow searching by dispatch name (e.g. "JUAN 133")
+            let dispatchNumbersFromDescription = []
+            if (searchTerm) {
+                const { data: matchingDispatches } = await supabase
+                    .from('dispatches')
+                    .select('dispatch_number')
+                    .ilike('description', `%${searchTerm}%`)
+                if (matchingDispatches && matchingDispatches.length > 0) {
+                    dispatchNumbersFromDescription = matchingDispatches.map(d => d.dispatch_number)
+                }
+            }
+
             let query = supabase
                 .from('products')
                 .select('*')
@@ -195,7 +203,12 @@ export function Inventory() {
 
             if (searchTerm || Object.keys(activeFilters).length > 0) {
                 if (searchTerm) {
-                    query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%`)
+                    // Build OR filter: search by product fields AND by dispatch_number resolved from dispatch descriptions
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    if (dispatchNumbersFromDescription.length > 0) {
+                        orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
+                    }
+                    query = query.or(orFilter)
                 }
 
                 Object.entries(activeFilters).forEach(([col, values]) => {
@@ -208,7 +221,11 @@ export function Inventory() {
                     .select('*', { count: 'exact', head: true })
 
                 if (searchTerm) {
-                    countQuery = countQuery.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%`)
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    if (dispatchNumbersFromDescription.length > 0) {
+                        orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
+                    }
+                    countQuery = countQuery.or(orFilter)
                 }
                 Object.entries(activeFilters).forEach(([col, values]) => {
                     if (values.length > 0) countQuery = countQuery.in(col, values)
@@ -225,7 +242,11 @@ export function Inventory() {
                     .select('stock')
 
                 if (searchTerm) {
-                    stockQuery = stockQuery.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%`)
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    if (dispatchNumbersFromDescription.length > 0) {
+                        orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
+                    }
+                    stockQuery = stockQuery.or(orFilter)
                 }
                 Object.entries(activeFilters).forEach(([col, values]) => {
                     if (values.length > 0) stockQuery = stockQuery.in(col, values)
@@ -1068,7 +1089,7 @@ export function Inventory() {
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                         <input
-                            placeholder="Buscar general..."
+                            placeholder="Buscar por producto, SKU, despacho (ej: 030974S) o referencia..."
                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 placeholder-slate-400 dark:placeholder-slate-600 transition-all shadow-sm dark:shadow-none"
                             type="text"
                             value={searchTerm}
