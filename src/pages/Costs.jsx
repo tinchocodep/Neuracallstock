@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
     Package,
     Upload,
@@ -14,7 +14,8 @@ import {
     X,
     FileSpreadsheet,
     Send,
-    Calculator
+    Calculator,
+    Trash2
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
@@ -138,10 +139,10 @@ function DispatchSelection({ onSelect }) {
     const fetchDispatches = useCallback(async () => {
         setLoading(true)
         try {
-            // Optimized: Select only needed columns instead of *
+            // FIX: Include company_id so existing dispatches carry it when selected
             let query = supabase
                 .from('dispatches')
-                .select('id, dispatch_number, description, origin, status, created_at', { count: 'exact' })
+                .select('id, dispatch_number, description, origin, status, created_at, company_id', { count: 'exact' })
                 .order('created_at', { ascending: false })
 
             if (searchTerm) {
@@ -178,16 +179,53 @@ function DispatchSelection({ onSelect }) {
             return
         }
 
+        // FIX: Ensure company_id is resolved — inline fetch if race condition left it null
+        let resolvedCompanyId = userCompanyId
+        if (!resolvedCompanyId) {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('company_id')
+                    .eq('id', user.id)
+                    .single()
+                resolvedCompanyId = profile?.company_id || null
+            }
+        }
+
+        if (!resolvedCompanyId) {
+            alert('Error: No se pudo obtener la empresa del usuario. Por favor recargá la página e intentá de nuevo.')
+            return
+        }
+
         // Don't create in Supabase - N8N will do it in STEP 2
         // Just pass the data to STEP 2
         setIsCreating(false)
         onSelect({
             ...newDispatch,
-            company_id: userCompanyId,
+            company_id: resolvedCompanyId,
             status: 'new',  // Indicates it needs to be created by N8N
             id: null  // No ID yet - will be set by N8N response
         })
         setNewDispatch({ dispatch_number: '', description: '', origin: 'CHINA' })
+    }
+
+    const handleDeleteDispatch = async (dispatch, e) => {
+        e.stopPropagation()
+        if (!window.confirm(`¿Eliminar el despacho "${dispatch.dispatch_number}"?\n\nEsto también eliminará todos los productos asociados. Esta acción no se puede deshacer.`)) return
+        try {
+            setLoading(true)
+            // Delete associated products first (FK constraint)
+            await supabase.from('products').delete().eq('dispatch_id', dispatch.id)
+            // Delete the dispatch
+            const { error } = await supabase.from('dispatches').delete().eq('id', dispatch.id)
+            if (error) throw error
+            fetchDispatches()
+        } catch (err) {
+            console.error('Error deleting dispatch:', err)
+            alert('Error al eliminar el despacho: ' + err.message)
+            setLoading(false)
+        }
     }
 
     if (isCreating) {
@@ -277,9 +315,10 @@ function DispatchSelection({ onSelect }) {
             {/* Table Header */}
             <div className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 grid grid-cols-12 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider rounded-t-xl">
                 <div className="col-span-4 pl-8">Despacho</div>
-                <div className="col-span-4">Referencia</div>
+                <div className="col-span-3">Referencia</div>
                 <div className="col-span-2 text-center">Origen</div>
                 <div className="col-span-2 text-right">Estado</div>
+                <div className="col-span-1"></div>
             </div>
 
             {/* List */}
@@ -305,7 +344,7 @@ function DispatchSelection({ onSelect }) {
                                     <Box className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
                                     <span className="font-bold text-slate-900 dark:text-white font-mono">{d.dispatch_number}</span>
                                 </div>
-                                <div className="col-span-4 truncate pr-2 text-slate-500">
+                                <div className="col-span-3 truncate pr-2 text-slate-500">
                                     {d.description || '-'}
                                 </div>
                                 <div className="col-span-2 text-center text-slate-500">
@@ -320,6 +359,15 @@ function DispatchSelection({ onSelect }) {
                                         }`}>
                                         {d.status === 'completed' ? 'Completado' : d.status === 'open' ? 'En Proceso' : 'Pendiente'}
                                     </span>
+                                </div>
+                                <div className="col-span-1 flex justify-center">
+                                    <button
+                                        onClick={(e) => handleDeleteDispatch(d, e)}
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-all"
+                                        title="Eliminar despacho"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -401,13 +449,33 @@ function ProductUpload({ dispatch, onNext, onBack }) {
         setUploading(true)
 
         try {
+            // FIX: Resolve company_id robustly — dispatch may not carry it if selected from list,
+            // or userCompanyId may have had a race condition when creating a new dispatch.
+            let companyId = dispatch.company_id
+            if (!companyId || companyId === 'null') {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('user_profiles')
+                        .select('company_id')
+                        .eq('id', user.id)
+                        .single()
+                    companyId = profile?.company_id || null
+                }
+            }
+
+            if (!companyId) {
+                alert('Error: No se pudo obtener la empresa del usuario. Por favor recargá la página e intentá de nuevo.')
+                return
+            }
+
             const formData = new FormData()
             formData.append('file', selectedFile)
 
             // Send dispatch data to N8N (N8N will create the dispatch)
             formData.append('dispatchNumber', dispatch.dispatch_number)
-            formData.append('description', dispatch.description || '')  // Changed from dispatchReference to description
-            formData.append('companyId', dispatch.company_id)
+            formData.append('description', dispatch.description || '')
+            formData.append('companyId', companyId)
             formData.append('origin', dispatch.origin)
 
             // N8N WEBHOOK URL - Using PRODUCTION webhook
@@ -415,17 +483,20 @@ function ProductUpload({ dispatch, onNext, onBack }) {
 
             console.log('Sending to n8n:', Object.fromEntries(formData))
             console.log('Using webhook URL:', N8N_WEBHOOK_URL)
-            // Force deploy - using test endpoint
 
             const response = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
                 body: formData
             })
 
-            if (!response.ok) throw new Error('Upload failed')
+            if (!response.ok) throw new Error('Upload failed with status: ' + response.status)
 
-            // N8N responds with the created dispatch_id
-            const result = await response.json()
+            // FIX: Safely parse response — handle empty body from n8n gracefully
+            const text = await response.text()
+            if (!text || text.trim() === '') {
+                throw new Error('El workflow de n8n devolvió una respuesta vacía. Verificá que el workflow esté activo.')
+            }
+            const result = JSON.parse(text)
             console.log('N8N Response:', result)
 
             // Update dispatch with the ID returned by N8N
@@ -1024,3 +1095,5 @@ function CostsForm({ dispatch, onBack }) {
         </div>
     )
 }
+
+
