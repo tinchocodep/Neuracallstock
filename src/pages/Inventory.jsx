@@ -180,6 +180,22 @@ export function Inventory() {
         return () => clearTimeout(delayDebounceFn)
     }, [page, pageSize, searchTerm, activeFilters, priceRange, sortColumn, sortDirection])
 
+    // Applies column filters to a Supabase query builder.
+    // Uses ilike (case-insensitive) for 'name' and 'category', exact .in() for others.
+    const applyColumnFilters = (q) => {
+        Object.entries(activeFilters).forEach(([col, values]) => {
+            if (!values || values.length === 0) return
+            if (col === 'category' || col === 'name') {
+                // Case-insensitive: build OR of ilike filters
+                const ilikeClause = values.map(v => `${col}.ilike.${v}`).join(',')
+                q = q.or(ilikeClause)
+            } else {
+                q = q.in(col, values)
+            }
+        })
+        return q
+    }
+
     const fetchProducts = async () => {
         setLoading(true)
         try {
@@ -211,9 +227,7 @@ export function Inventory() {
                     query = query.or(orFilter)
                 }
 
-                Object.entries(activeFilters).forEach(([col, values]) => {
-                    if (values.length > 0) query = query.in(col, values)
-                })
+                query = applyColumnFilters(query)
                 // Note: Price total filter (price × stock) is applied client-side after fetching
 
                 let countQuery = supabase
@@ -227,9 +241,7 @@ export function Inventory() {
                     }
                     countQuery = countQuery.or(orFilter)
                 }
-                Object.entries(activeFilters).forEach(([col, values]) => {
-                    if (values.length > 0) countQuery = countQuery.in(col, values)
-                })
+                countQuery = applyColumnFilters(countQuery)
                 // Note: Price total filter is applied client-side
 
                 const { count: searchCount, error: countError } = await countQuery
@@ -248,9 +260,7 @@ export function Inventory() {
                     }
                     stockQuery = stockQuery.or(orFilter)
                 }
-                Object.entries(activeFilters).forEach(([col, values]) => {
-                    if (values.length > 0) stockQuery = stockQuery.in(col, values)
-                })
+                stockQuery = applyColumnFilters(stockQuery)
                 // Note: Price total filter is applied client-side
 
                 const { data: stockData } = await stockQuery
