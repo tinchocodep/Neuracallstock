@@ -1477,6 +1477,29 @@ export function Inventory() {
                                     <ChevronDown className="w-4 h-4 -rotate-90 text-slate-500 dark:text-slate-400" />
                                 </button>
                             </div>
+                            {/* Jump to page */}
+                            {Math.ceil(totalProducts / pageSize) > 7 && (
+                                <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-700">
+                                    <span className="text-xs text-slate-400 whitespace-nowrap">Ir a:</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={Math.ceil(totalProducts / pageSize)}
+                                        placeholder={page + 1}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const totalPages = Math.ceil(totalProducts / pageSize)
+                                                const target = parseInt(e.target.value)
+                                                if (!isNaN(target) && target >= 1 && target <= totalPages) {
+                                                    setPage(target - 1)
+                                                    e.target.value = ''
+                                                }
+                                            }
+                                        }}
+                                        className="w-14 h-8 text-center text-xs font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
