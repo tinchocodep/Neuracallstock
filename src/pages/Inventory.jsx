@@ -340,13 +340,14 @@ export function Inventory() {
             name: product.name,
             price: product.price,
             stock: product.stock,
-            category: product.category
+            category: product.category,
+            referencia: product.referencia || ''
         })
     }
 
     const cancelEditing = () => {
         setEditingId(null)
-        setEditValues({ name: '', price: '', stock: '', category: '' })
+        setEditValues({ name: '', price: '', stock: '', category: '', referencia: '' })
     }
 
     const handleEditChange = (field, value) => {
@@ -372,7 +373,7 @@ export function Inventory() {
             if (cachedTranslation) {
                 // Use cached translation (faster, no API call needed)
                 console.log('✅ Using cached translation')
-                setEditValues(prev => ({ ...prev, name: cachedTranslation.translated_text }))
+                setEditValues(prev => ({ ...prev, name: cachedTranslation.translated_text.toUpperCase() }))
                 return
             }
 
@@ -389,12 +390,13 @@ export function Inventory() {
             if (data.responseStatus === 200 && data.responseData?.translatedText) {
                 const translatedText = data.responseData.translatedText
 
-                // Step 3: Save translation to dictionary for future use
+                // Step 3: Save translation to dictionary for future use (always uppercase)
+                const normalizedTranslation = translatedText.toUpperCase()
                 await supabase
                     .from('translations')
                     .insert({
                         original_text: originalText,
-                        translated_text: translatedText,
+                        translated_text: normalizedTranslation,
                         source_lang: 'en',
                         target_lang: 'es'
                     })
@@ -402,8 +404,8 @@ export function Inventory() {
 
                 console.log('💾 Translation saved to dictionary')
 
-                // Update the name field with the translation
-                setEditValues(prev => ({ ...prev, name: translatedText }))
+                // Update the name field with the normalized (uppercase) translation
+                setEditValues(prev => ({ ...prev, name: normalizedTranslation }))
             } else {
                 alert('No se pudo traducir el nombre. Intenta editarlo manualmente.')
             }
@@ -450,7 +452,8 @@ export function Inventory() {
                 name: normalizedName,
                 price: parseFloat(editValues.price) || 0,
                 stock: newStock,
-                category: newCategory
+                category: newCategory,
+                referencia: editValues.referencia
             }
 
             const { error } = await supabase
@@ -1272,8 +1275,18 @@ export function Inventory() {
                                         <td className="px-2 py-2 font-mono text-[10px]">
                                             {product.sku || 'N/A'}
                                         </td>
-                                        <td className="px-2 py-2 text-slate-400 text-[10px]">
-                                            {product.referencia || '-'}
+                                        <td className="px-1 py-2 text-slate-400 text-[10px]">
+                                            {editingId === product.id ? (
+                                                <input
+                                                    type="text"
+                                                    className="w-20 bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-1 py-1 outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
+                                                    value={editValues.referencia || ''}
+                                                    onChange={(e) => handleEditChange('referencia', e.target.value)}
+                                                    placeholder="-"
+                                                />
+                                            ) : (
+                                                product.referencia || '-'
+                                            )}
                                         </td>
                                         <td className="px-2 py-2">
                                             {editingId === product.id ? (
