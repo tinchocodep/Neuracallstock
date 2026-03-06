@@ -21,6 +21,7 @@ export function Billing() {
     const [clientSearch, setClientSearch] = useState('')
     const [clients, setClients] = useState([])
     const [selectedClient, setSelectedClient] = useState(null)
+    const [selectedAddress, setSelectedAddress] = useState('')
     const [showClientModal, setShowClientModal] = useState(false)
     const [editingClient, setEditingClient] = useState(null)
     const [loadingClients, setLoadingClients] = useState(false)
@@ -136,7 +137,7 @@ export function Billing() {
 
         setLoadingClients(true)
         try {
-            const response = await fetch('https://n8n.neuracall.net/webhook/BuscarPersonas', {
+            const response = await fetch('https://n8n.neuracall.net/webhook/BuscarPersonasPruebaDomicilio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cuit: cuitToSearch })
@@ -148,12 +149,17 @@ export function Billing() {
 
                 if (validItems.length > 0) {
                     const item = validItems[0]
+                    const webhookAddresses = item.addresses || []
+                    const addressList = webhookAddresses.map(addr => addr.address).filter(Boolean)
+                    const primaryAddress = item.primaryAddress || (addressList.length > 0 ? addressList[0] : '')
+
                     const clientTemplate = {
                         name: item.name || item.razonSocial,
                         cuit: cuitToSearch,
                         tax_condition: item.taxCondition || 'Responsable Inscripto',
-                        jurisdiction: item.jurisdiction || 'CABA',
-                        address: item.address || item.domicilioFiscal,
+                        jurisdiction: item.jurisdiction || (webhookAddresses[0]?.jurisdiction) || 'CABA',
+                        address: primaryAddress || item.domicilioFiscal,
+                        addresses: addressList || [],
                         email: item.email || ''
                     }
                     setEditingClient(clientTemplate)
@@ -177,6 +183,8 @@ export function Billing() {
 
     const handleSelectClient = (client) => {
         setSelectedClient(client)
+        const safeAddresses = Array.isArray(client.addresses) ? client.addresses : [];
+        setSelectedAddress(client.address || (safeAddresses.length > 0 ? safeAddresses[0] : ''))
         if (client.tax_condition === 'Responsable Inscripto') {
             setInvoiceType('A')
         } else {
@@ -205,7 +213,10 @@ export function Billing() {
             const payload = {
                 type: invoiceType,
                 creditnote: false, // Flag para indicar que NO es nota de crédito
-                client: selectedClient,
+                client: {
+                    ...selectedClient,
+                    address: selectedAddress // Override default with the manually selected one
+                },
                 items: safeCart.map(item => {
                     const quantity = Number(item.quantity) || 1
                     const unitPrice = Number(item.price) || 0
@@ -640,12 +651,32 @@ export function Billing() {
                                             {selectedClient.cuit}
                                         </span>
                                     </h3>
-                                    <div className="flex gap-4 mt-1 text-sm text-slate-400">
+                                    <div className="flex gap-4 mt-1 mb-2 text-sm text-slate-400">
                                         <span>{selectedClient.tax_condition}</span>
                                         <span>•</span>
                                         <span>{selectedClient.jurisdiction}</span>
-                                        <span>•</span>
-                                        <span>{selectedClient.address}</span>
+                                    </div>
+                                    {/* Dirección Selector / Display */}
+                                    <div className="text-sm">
+                                        {Array.isArray(selectedClient.addresses) && selectedClient.addresses.length > 1 ? (
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="w-4 h-4 text-slate-500" />
+                                                <select
+                                                    value={selectedAddress}
+                                                    onChange={e => setSelectedAddress(e.target.value)}
+                                                    className="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-slate-300 text-xs focus:outline-none focus:border-cyan-500 max-w-[300px]"
+                                                >
+                                                    {Array.from(new Set([selectedClient.address, ...selectedClient.addresses].filter(Boolean))).map((addr, idx) => (
+                                                        <option key={idx} value={addr}>{addr}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-slate-400">
+                                                <MapPin className="w-4 h-4 text-slate-500" />
+                                                <span>{selectedAddress || selectedClient.address || 'Sin dirección registrada'}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -897,6 +928,7 @@ export function Billing() {
                 clientToEdit={editingClient}
                 onSave={(client) => {
                     setSelectedClient(client)
+                    setSelectedAddress(client.address || (client.addresses && client.addresses.length > 0 ? client.addresses[0] : ''))
                     if (client.tax_condition === 'Responsable Inscripto') {
                         setInvoiceType('A')
                     } else {

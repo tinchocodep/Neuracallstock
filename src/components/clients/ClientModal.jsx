@@ -9,6 +9,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
         cuit: '',
         tax_condition: 'Responsable Inscripto',
         address: '',
+        addresses: [],
         jurisdiction: 'CABA',
         email: ''
     })
@@ -24,6 +25,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
                 cuit: clientToEdit.cuit || '',
                 tax_condition: clientToEdit.tax_condition || 'Responsable Inscripto',
                 address: clientToEdit.address || '',
+                addresses: clientToEdit.addresses || [],
                 jurisdiction: clientToEdit.jurisdiction || 'CABA',
                 email: clientToEdit.email || ''
             })
@@ -35,6 +37,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
                 cuit: '',
                 tax_condition: 'Responsable Inscripto',
                 address: '',
+                addresses: [],
                 jurisdiction: 'CABA',
                 email: ''
             })
@@ -55,7 +58,7 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
         setFoundAddresses([])
 
         try {
-            const WEBHOOK_CUIT_URL = 'https://n8n.neuracall.net/webhook/BuscarPersonas'
+            const WEBHOOK_CUIT_URL = 'https://n8n.neuracall.net/webhook/BuscarPersonasPruebaDomicilio'
             const response = await fetch(WEBHOOK_CUIT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -72,29 +75,30 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
                 if (validItems.length > 0) {
                     const primaryData = validItems[0]
 
+                    // Extract new structured addresses
+                    const webhookAddresses = primaryData.addresses || []
+                    const addressList = webhookAddresses.map(addr => addr.address).filter(Boolean)
+                    const primaryAddress = primaryData.primaryAddress || (addressList.length > 0 ? addressList[0] : '')
+
                     // Update form data with found info
                     setFormData(prev => ({
                         ...prev,
                         name: primaryData.name || primaryData.razonSocial || '',
                         tax_condition: primaryData.taxCondition || 'Responsable Inscripto',
-                        jurisdiction: primaryData.jurisdiction || 'CABA',
-                        address: primaryData.address || primaryData.domicilioFiscal || '',
+                        jurisdiction: primaryData.jurisdiction || (webhookAddresses[0]?.jurisdiction) || 'CABA',
+                        address: primaryAddress || primaryData.domicilioFiscal || '',
+                        addresses: addressList || [],
                         email: primaryData.email || prev.email // Keep existing email if none returned
                     }))
 
-                    // If multiple items have addresses, let user choose
-                    if (validItems.length > 0) {
-                        const addresses = validItems.map(item => ({
-                            address: item.address || item.domicilioFiscal,
-                            type: item.tipoDomicilio || 'Fiscal'
-                        })).filter(addr => addr.address)
-
-                        // Remove duplicates
-                        const uniqueAddresses = [...new Map(addresses.map(item => [item.address, item])).values()]
-
-                        if (uniqueAddresses.length > 1) {
-                            setFoundAddresses(uniqueAddresses)
-                        }
+                    if (addressList.length > 1) {
+                        const formattedFound = webhookAddresses.map(addr => ({
+                            address: addr.address,
+                            type: addr.addressType || 'Fiscal'
+                        }))
+                        setFoundAddresses(formattedFound)
+                    } else {
+                        setFoundAddresses([])
                     }
                 } else {
                     setError('No se encontraron datos para este CUIT.')
@@ -239,39 +243,116 @@ export function ClientModal({ isOpen, onClose, clientToEdit = null, onSave }) {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección Fiscal</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dirección Fiscal Principal</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-slate-600" />
                             <input
                                 type="text"
                                 placeholder="Calle Falsa 123, CABA"
                                 value={formData.address}
-                                onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                onChange={e => {
+                                    const newAddress = e.target.value;
+                                    setFormData(prev => {
+                                        // Update primary and ensure it's in the array if not already
+                                        const prevAddresses = Array.isArray(prev.addresses) ? prev.addresses : [];
+                                        const newAddresses = [...prevAddresses];
+                                        if (prev.address && newAddresses.includes(prev.address)) {
+                                            newAddresses[newAddresses.indexOf(prev.address)] = newAddress;
+                                        } else if (newAddress && !newAddresses.includes(newAddress)) {
+                                            newAddresses.push(newAddress);
+                                        }
+                                        return { ...prev, address: newAddress, addresses: newAddresses };
+                                    })
+                                }}
                                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                             />
                         </div>
-                        {/* Multiple Address Selector */}
-                        {foundAddresses.length > 1 && (
+
+                        {/* Multiple Address Selector / Manager */}
+                        {formData.addresses && formData.addresses.length > 0 && (
                             <div className="mt-2 bg-slate-800/50 rounded-lg p-2 border border-slate-800 animate-in slide-in-from-top-2">
-                                <p className="text-xs text-slate-400 mb-2 px-1">Múltiples direcciones encontradas:</p>
-                                <div className="space-y-1 max-h-[100px] overflow-y-auto custom-scrollbar">
-                                    {foundAddresses.map((addr, idx) => (
-                                        <button
-                                            key={idx}
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, address: addr.address })}
-                                            className={`w-full text-left text-xs px-3 py-2 rounded-md transition-colors flex items-center justify-between ${formData.address === addr.address
-                                                ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20'
-                                                : 'hover:bg-slate-800 text-slate-300'
-                                                }`}
-                                        >
-                                            <span className="truncate">{addr.address}</span>
-                                            {formData.address === addr.address && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" />}
-                                        </button>
+                                <p className="text-xs text-slate-400 mb-2 px-1">Direcciones registradas (clic para fijar como principal):</p>
+                                <div className="space-y-1 max-h-[120px] overflow-y-auto custom-scrollbar">
+                                    {formData.addresses.map((addr, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 group">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, address: addr }))}
+                                                className={`flex-1 text-left text-xs px-3 py-2 rounded-md transition-colors flex items-center justify-between ${formData.address === addr
+                                                    ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20'
+                                                    : 'hover:bg-slate-800 text-slate-300 border border-transparent'
+                                                    }`}
+                                            >
+                                                <span className="truncate">{addr}</span>
+                                                {formData.address === addr && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0" />}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => {
+                                                        const prevAddresses = Array.isArray(prev.addresses) ? prev.addresses : [];
+                                                        return {
+                                                            ...prev,
+                                                            addresses: prevAddresses.filter((_, i) => i !== idx),
+                                                            address: prev.address === addr ? (prevAddresses.find((_, i) => i !== idx) || '') : prev.address
+                                                        }
+                                                    })
+                                                }}
+                                                className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         )}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                id="newAddressInput"
+                                placeholder="Agregar otra dirección..."
+                                className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (e.target.value.trim()) {
+                                            const val = e.target.value.trim();
+                                            setFormData(prev => {
+                                                const prevAddresses = Array.isArray(prev.addresses) ? prev.addresses : [];
+                                                return {
+                                                    ...prev,
+                                                    addresses: prevAddresses.includes(val) ? prevAddresses : [...prevAddresses, val],
+                                                    address: prev.address || val // Set as main if empty
+                                                }
+                                            });
+                                            e.target.value = '';
+                                        }
+                                    }
+                                }}
+                            />
+                            <button
+                                type="button"
+                                className="px-3 bg-slate-800 hover:bg-slate-700 text-cyan-500 rounded-lg text-xs font-medium transition-colors"
+                                onClick={() => {
+                                    const input = document.getElementById('newAddressInput');
+                                    if (input && input.value.trim()) {
+                                        const val = input.value.trim();
+                                        setFormData(prev => {
+                                            const prevAddresses = Array.isArray(prev.addresses) ? prev.addresses : [];
+                                            return {
+                                                ...prev,
+                                                addresses: prevAddresses.includes(val) ? prevAddresses : [...prevAddresses, val],
+                                                address: prev.address || val
+                                            }
+                                        });
+                                        input.value = '';
+                                    }
+                                }}
+                            >
+                                Añadir
+                            </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
