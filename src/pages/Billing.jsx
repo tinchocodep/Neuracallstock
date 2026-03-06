@@ -1,6 +1,6 @@
 // Force rebuild - Webhooks to production
 import { useState, useEffect } from 'react'
-import { X, Search, Plus, Minus, ShoppingCart, Printer, User, Trash2, FileText, Edit, UserPlus, Globe, Calendar } from 'lucide-react'
+import { X, Search, Plus, Minus, ShoppingCart, Printer, User, Trash2, FileText, Edit, UserPlus, Globe, Calendar, MapPin } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { supabase } from '../supabaseClient'
 import { ClientModal } from '../components/clients/ClientModal'
