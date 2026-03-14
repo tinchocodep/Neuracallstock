@@ -373,7 +373,7 @@ export function Inventory() {
             if (cachedTranslation) {
                 // Use cached translation (faster, no API call needed)
                 console.log('✅ Using cached translation')
-                setEditValues(prev => ({ ...prev, name: cachedTranslation.translated_text.toUpperCase() }))
+                setEditValues(prev => ({ ...prev, name: cachedTranslation.translated_text.toLowerCase() }))
                 return
             }
 
@@ -390,8 +390,8 @@ export function Inventory() {
             if (data.responseStatus === 200 && data.responseData?.translatedText) {
                 const translatedText = data.responseData.translatedText
 
-                // Step 3: Save translation to dictionary for future use (always uppercase)
-                const normalizedTranslation = translatedText.toUpperCase()
+                // Step 3: Save translation to dictionary for future use (always lowercase)
+                const normalizedTranslation = translatedText.toLowerCase()
                 await supabase
                     .from('translations')
                     .insert({
@@ -442,8 +442,8 @@ export function Inventory() {
                 }
             }
 
-            // 🔄 AUTO-NORMALIZE: Convert name to UPPERCASE
-            const normalizedName = newName.toUpperCase()
+            // 🔄 AUTO-NORMALIZE: Convert name to lowercase
+            const normalizedName = newName.toLowerCase()
             const originalCategory = currentProduct?.category
             const newCategory = editValues.category
 
@@ -830,7 +830,7 @@ export function Inventory() {
                         console.log(`📥 API Response for "${product.name}":`, data[0]?.[0]?.[0])
 
                         if (data && data[0] && data[0][0] && data[0][0][0]) {
-                            const translatedName = data[0][0][0].toUpperCase()
+                            const translatedName = data[0][0][0].toLowerCase()
                             const originalName = product.name
 
                             console.log(`🔄 Will update "${originalName}" → "${translatedName}"`)
