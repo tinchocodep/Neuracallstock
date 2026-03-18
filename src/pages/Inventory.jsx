@@ -31,7 +31,18 @@ export function Inventory() {
     })
     const [priceRange, setPriceRange] = useState(() => {
         const saved = localStorage.getItem('inventory_priceRange')
-        return saved ? JSON.parse(saved) : [0, 100000]
+        // Update parsing logic to ignore saved old defaults or values out of bounds
+        if (saved) {
+             try {
+                const parsed = JSON.parse(saved)
+                // If saved value is the old [0, 100000], override with new default
+                if (parsed[0] === 0 && parsed[1] === 100000) return [100000, 20000000]
+                return parsed
+             } catch (e) {
+                return [100000, 20000000]
+             }
+        }
+        return [100000, 20000000]
     })
     const [showPriceFilter, setShowPriceFilter] = useState(false)
 
@@ -297,7 +308,7 @@ export function Inventory() {
             // Filter out products with stock 0 (keep them in DB for invoice history)
             filteredData = filteredData.filter(product => (product.stock || 0) > 0)
 
-            if (priceRange[0] > 0 || priceRange[1] < 100000) {
+            if (priceRange[0] > 100000 || priceRange[1] < 20000000) {
                 filteredData = filteredData.filter(product => {
                     const totalPrice = (product.price || 0) * (product.stock || 0)
                     return totalPrice >= priceRange[0] && totalPrice <= priceRange[1]
@@ -1208,8 +1219,8 @@ export function Inventory() {
                                             {showPriceFilter && (
                                                 <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl z-50 min-w-[320px]">
                                                     <PriceRangeSlider
-                                                        min={0}
-                                                        max={100000}
+                                                        min={100000}
+                                                        max={20000000}
                                                         value={priceRange}
                                                         onChange={(newRange) => {
                                                             setPriceRange(newRange)
@@ -1219,7 +1230,7 @@ export function Inventory() {
                                                     <div className="flex gap-2 mt-4">
                                                         <button
                                                             onClick={() => {
-                                                                setPriceRange([0, 100000])
+                                                                setPriceRange([100000, 20000000])
                                                                 setPage(0)
                                                             }}
                                                             className="flex-1 px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"

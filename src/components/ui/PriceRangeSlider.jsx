@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { DollarSign } from 'lucide-react'
 
-export function PriceRangeSlider({ min = 0, max = 100000, value = [0, 100000], onChange }) {
+export function PriceRangeSlider({ min = 100000, max = 20000000, value = [100000, 20000000], onChange }) {
     const [localValue, setLocalValue] = useState(value)
     const [isDragging, setIsDragging] = useState(null)
     const sliderRef = useRef(null)
