@@ -192,17 +192,12 @@ export function Inventory() {
     }, [page, pageSize, searchTerm, activeFilters, priceRange, sortColumn, sortDirection])
 
     // Applies column filters to a Supabase query builder.
-    // Uses ilike (case-insensitive) for 'name' and 'category', exact .in() for others.
+    // Uses exact .in() universally to allow native multiple simultaneous AND filters without 
+    // overriding the single query URL parameter 'or' that Supabase uses for .or() calls.
     const applyColumnFilters = (q) => {
         Object.entries(activeFilters).forEach(([col, values]) => {
             if (!values || values.length === 0) return
-            if (col === 'category' || col === 'name') {
-                // Case-insensitive: build OR of ilike filters
-                const ilikeClause = values.map(v => `${col}.ilike.${v}`).join(',')
-                q = q.or(ilikeClause)
-            } else {
-                q = q.in(col, values)
-            }
+            q = q.in(col, values)
         })
         return q
     }
