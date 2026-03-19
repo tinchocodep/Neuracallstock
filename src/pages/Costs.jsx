@@ -459,7 +459,7 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
     const [hasSecondInvoice, setHasSecondInvoice] = useState(false)
     const [uploadingStep, setUploadingStep] = useState(null) // null | 'invoice1' | 'invoice2' | 'done'
 
-    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoicePruebaColores'
+    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoice'
 
     // Resolve company_id — fallback fetch if not on dispatch object
     const resolveCompanyId = async () => {
@@ -904,7 +904,7 @@ function CostsForm({ dispatch, onBack, onReset }) {
         try {
             const { data } = await supabase
                 .from('products')
-                .select('id, sku, name, brand, color, stock, unit_price_usd, price, dispatch_number')
+                .select('id, sku, name, original_name, brand, color, stock, unit_price_usd, price, dispatch_number')
                 .eq('dispatch_number', dispatch.dispatch_number)
             setReviewProducts(data || [])
             setShowReview(true)
@@ -1077,6 +1077,16 @@ function sumCostFields(costs) {
 // Responsibility: display-only table of products.
 // ─────────────────────────────────────────────
 function ProductReviewTable({ products }) {
+    const [expandedProducts, setExpandedProducts] = useState(new Set())
+    const toggleProductExpand = (id) => {
+        setExpandedProducts(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
     const totalQty = products.reduce((s, p) => s + (p.stock || 0), 0)
     const totalFobUSD = products.reduce((s, p) => s + ((p.unit_price_usd || 0) * (p.stock || 0)), 0)
 
@@ -1089,6 +1099,7 @@ function ProductReviewTable({ products }) {
                         <th className="px-4 py-2 text-left font-medium">Marca</th>
                         <th className="px-4 py-2 text-left font-medium">Color</th>
                         <th className="px-4 py-2 text-left font-medium">Producto</th>
+                        <th className="px-4 py-2 text-left font-medium">Nombre Original</th>
                         <th className="px-4 py-2 text-right font-medium">Cantidad</th>
                         <th className="px-4 py-2 text-right font-medium">P. Unit USD</th>
                         <th className="px-4 py-2 text-right font-medium">FOB (USD)</th>
@@ -1105,7 +1116,20 @@ function ProductReviewTable({ products }) {
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.sku || '—'}</td>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.brand || '—'}</td>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.color || '—'}</td>
-                                <td className="px-4 py-2.5 text-slate-200 max-w-[200px] truncate">{p.name}</td>
+                                <td 
+                                    className={`px-4 py-2.5 max-w-[200px] cursor-pointer transition-colors text-slate-200 ${expandedProducts.has(p.id) ? 'whitespace-normal break-words' : 'truncate'}`}
+                                    onClick={() => toggleProductExpand(p.id)}
+                                    title="Click para ver/ocultar nombre completo"
+                                >
+                                    {p.name}
+                                </td>
+                                <td 
+                                    className={`px-4 py-2.5 max-w-[150px] text-[10px] italic cursor-pointer transition-colors text-slate-400 ${expandedProducts.has(p.id) ? 'whitespace-normal break-words' : 'truncate'}`}
+                                    onClick={() => toggleProductExpand(p.id)}
+                                    title="Click para ver/ocultar nombre original"
+                                >
+                                    {p.original_name || '—'}
+                                </td>
                                 <td className="px-4 py-2.5 text-right font-mono text-slate-300">{p.stock?.toLocaleString('es-AR')}</td>
                                 <td className="px-4 py-2.5 text-right font-mono text-slate-300">${unitUSD.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                                 <td className="px-4 py-2.5 text-right font-mono text-slate-300">${fobUSD.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>

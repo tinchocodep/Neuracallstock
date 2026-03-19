@@ -181,6 +181,17 @@ export function Inventory() {
         localStorage.setItem('inventory_pageSize', pageSize)
     }, [page, pageSize])
 
+    // Expand State
+    const [expandedProducts, setExpandedProducts] = useState(new Set())
+    const toggleProductExpand = (id) => {
+        setExpandedProducts(prev => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
     // Edit State
     const [editingId, setEditingId] = useState(null)
     const [editValues, setEditValues] = useState({ name: '', price: '', stock: '', category: '' })
@@ -1301,7 +1312,20 @@ export function Inventory() {
                                                     />
                                                 </div>
                                             ) : (
-                                                <div className="truncate max-w-[150px]">{product.name}</div>
+                                                <div 
+                                                    className="flex flex-col cursor-pointer" 
+                                                    onClick={() => toggleProductExpand(product.id)}
+                                                    title="Click para ver nombre completo"
+                                                >
+                                                    <span className={expandedProducts.has(product.id) ? "break-words whitespace-normal text-cyan-400 dark:text-cyan-300 transition-colors" : "truncate max-w-[150px] transition-colors"}>
+                                                        {product.name}
+                                                    </span>
+                                                    {product.original_name && (
+                                                        <span className={expandedProducts.has(product.id) ? "text-[9.5px] text-slate-400 italic font-mono mt-0.5 break-words whitespace-normal" : "truncate max-w-[150px] text-[9.5px] text-slate-400 italic font-mono mt-0.5"}>
+                                                            {product.original_name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-2 py-2 font-mono text-[10px]">
