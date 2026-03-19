@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
     Upload,
     DollarSign,
@@ -459,7 +459,7 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
     const [hasSecondInvoice, setHasSecondInvoice] = useState(false)
     const [uploadingStep, setUploadingStep] = useState(null) // null | 'invoice1' | 'invoice2' | 'done'
 
-    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoice'
+    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoicePruebaColores'
 
     // Resolve company_id — fallback fetch if not on dispatch object
     const resolveCompanyId = async () => {
@@ -498,6 +498,13 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
         try {
             const result = JSON.parse(text)
             console.log(`[N8N] Response (invoice ${invoiceIndex}):`, result)
+            
+            // Si N8N devuelve un array de productos insertados (como estamos viendo ahora)
+            if (Array.isArray(result)) {
+                return result.reduce((sum, item) => sum + ((parseFloat(item.unit_price_usd) || 0) * (parseInt(item.stock) || 0)), 0)
+            }
+            
+            // Si devuelve el JSON estricto original
             return result.total_fob_usd || 0
         } catch { return 0 }
     }
@@ -897,7 +904,7 @@ function CostsForm({ dispatch, onBack, onReset }) {
         try {
             const { data } = await supabase
                 .from('products')
-                .select('id, sku, name, stock, unit_price_usd, price, dispatch_number')
+                .select('id, sku, name, brand, color, stock, unit_price_usd, price, dispatch_number')
                 .eq('dispatch_number', dispatch.dispatch_number)
             setReviewProducts(data || [])
             setShowReview(true)
@@ -1079,6 +1086,8 @@ function ProductReviewTable({ products }) {
                 <thead>
                     <tr className="border-b border-slate-700 text-slate-400">
                         <th className="px-4 py-2 text-left font-medium">Código</th>
+                        <th className="px-4 py-2 text-left font-medium">Marca</th>
+                        <th className="px-4 py-2 text-left font-medium">Color</th>
                         <th className="px-4 py-2 text-left font-medium">Producto</th>
                         <th className="px-4 py-2 text-right font-medium">Cantidad</th>
                         <th className="px-4 py-2 text-right font-medium">P. Unit USD</th>
@@ -1094,6 +1103,8 @@ function ProductReviewTable({ products }) {
                         return (
                             <tr key={p.id} className={`border-b border-slate-800/50 ${i % 2 === 0 ? 'bg-slate-900/20' : ''}`}>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.sku || '—'}</td>
+                                <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.brand || '—'}</td>
+                                <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.color || '—'}</td>
                                 <td className="px-4 py-2.5 text-slate-200 max-w-[200px] truncate">{p.name}</td>
                                 <td className="px-4 py-2.5 text-right font-mono text-slate-300">{p.stock?.toLocaleString('es-AR')}</td>
                                 <td className="px-4 py-2.5 text-right font-mono text-slate-300">${unitUSD.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
@@ -1110,7 +1121,7 @@ function ProductReviewTable({ products }) {
                 </tbody>
                 <tfoot>
                     <tr className="border-t border-slate-700 font-bold">
-                        <td className="px-4 py-2.5" />
+                        <td colSpan={3} className="px-4 py-2.5" />
                         <td className="px-4 py-2.5 text-slate-400">TOTAL</td>
                         <td className="px-4 py-2.5 text-right font-mono text-white">{totalQty.toLocaleString('es-AR')}</td>
                         <td className="px-4 py-2.5" />

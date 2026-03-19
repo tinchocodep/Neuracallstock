@@ -57,7 +57,9 @@ export function Inventory() {
         referencia: [],
         category: [],
         dispatch_number: [],
-        origin: []
+        origin: [],
+        brand: [],
+        color: []
     })
 
     // Sorting State (with localStorage persistence)
@@ -95,6 +97,8 @@ export function Inventory() {
                     category: data.categories || [],
                     dispatch_number: data.dispatch_numbers || [],
                     origin: data.origins || [],
+                    brand: data.brands || [],
+                    color: data.colors || [],
                 })
             }
         }
@@ -226,7 +230,7 @@ export function Inventory() {
             if (searchTerm || Object.keys(activeFilters).length > 0) {
                 if (searchTerm) {
                     // Build OR filter: search by product fields AND by dispatch_number resolved from dispatch descriptions
-                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%,color.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
                     if (dispatchNumbersFromDescription.length > 0) {
                         orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
                     }
@@ -241,7 +245,7 @@ export function Inventory() {
                     .select('*', { count: 'exact', head: true })
 
                 if (searchTerm) {
-                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%,color.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
                     if (dispatchNumbersFromDescription.length > 0) {
                         orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
                     }
@@ -260,7 +264,7 @@ export function Inventory() {
                     .select('stock')
 
                 if (searchTerm) {
-                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
+                    let orFilter = `name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,referencia.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%,color.ilike.%${searchTerm}%,dispatch_number.ilike.%${searchTerm}%`
                     if (dispatchNumbersFromDescription.length > 0) {
                         orFilter += ',' + dispatchNumbersFromDescription.map(dn => `dispatch_number.eq.${dn}`).join(',')
                     }
@@ -347,13 +351,15 @@ export function Inventory() {
             price: product.price,
             stock: product.stock,
             category: product.category,
-            referencia: product.referencia || ''
+            referencia: product.referencia || '',
+            brand: product.brand || '',
+            color: product.color || ''
         })
     }
 
     const cancelEditing = () => {
         setEditingId(null)
-        setEditValues({ name: '', price: '', stock: '', category: '', referencia: '' })
+        setEditValues({ name: '', price: '', stock: '', category: '', referencia: '', brand: '', color: '' })
     }
 
     const handleEditChange = (field, value) => {
@@ -459,7 +465,9 @@ export function Inventory() {
                 price: parseFloat(editValues.price) || 0,
                 stock: newStock,
                 category: newCategory,
-                referencia: editValues.referencia
+                referencia: editValues.referencia,
+                brand: editValues.brand,
+                color: editValues.color
             }
 
             const { error } = await supabase
@@ -1152,6 +1160,24 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
+                                    <th className="px-2 py-2 w-[70px]">
+                                        <ColumnFilter
+                                            label="MARCA"
+                                            column="brand"
+                                            options={filterOptions.brand}
+                                            selected={activeFilters.brand || []}
+                                            onFilter={handleFilterChange}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 w-[70px]">
+                                        <ColumnFilter
+                                            label="COLOR"
+                                            column="color"
+                                            options={filterOptions.color}
+                                            selected={activeFilters.color || []}
+                                            onFilter={handleFilterChange}
+                                        />
+                                    </th>
                                     <th className="px-2 py-2 w-[100px]">
                                         <div className="flex items-center gap-1">
                                             <ColumnFilter
@@ -1280,6 +1306,36 @@ export function Inventory() {
                                         </td>
                                         <td className="px-2 py-2 font-mono text-[10px]">
                                             {product.sku || 'N/A'}
+                                        </td>
+                                        <td className="px-2 py-2 font-mono text-[10px]">
+                                            {editingId === product.id ? (
+                                                <input
+                                                    type="text"
+                                                    className="w-16 bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-1 py-1 outline-none text-slate-900 dark:text-white"
+                                                    value={editValues.brand || ''}
+                                                    onChange={(e) => handleEditChange('brand', e.target.value)}
+                                                    placeholder="-"
+                                                />
+                                            ) : (
+                                                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] border ${product.brand ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent'} whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]`}>
+                                                    {product.brand || '-'}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-2 py-2 font-mono text-[10px]">
+                                            {editingId === product.id ? (
+                                                <input
+                                                    type="text"
+                                                    className="w-16 bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-1 py-1 outline-none text-slate-900 dark:text-white"
+                                                    value={editValues.color || ''}
+                                                    onChange={(e) => handleEditChange('color', e.target.value)}
+                                                    placeholder="-"
+                                                />
+                                            ) : (
+                                                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] border ${product.color ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent'} whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]`}>
+                                                    {product.color || '-'}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-1 py-2 text-slate-400 text-[10px]">
                                             {editingId === product.id ? (
