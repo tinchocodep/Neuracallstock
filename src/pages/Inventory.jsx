@@ -490,6 +490,26 @@ export function Inventory() {
 
             setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p))
 
+            // 🧠 AUTO-APRENDIZAJE N8N (Diccionario Centralizado)
+            // Si el nombre original y el nuevo son diferentes, le avisamos a N8N
+            if (originalName && originalName !== normalizedName) {
+                try {
+                    // Mismo Webhook de la pantalla de Costos
+                    const N8N_DICTIONARY_WEBHOOK = 'https://n8n.neuracall.net/webhook/aprender-traduccion'
+                    await fetch(N8N_DICTIONARY_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            Ingles: originalName, 
+                            Español: normalizedName,                 
+                            Categoria: newCategory || 'Varios'
+                        })
+                    })
+                } catch (err) {
+                    console.warn('[Dictionary] N8N Webhook falló desde Inventario.', err)
+                }
+            }
+
             // Check if category was changed
             if (originalCategory !== newCategory && normalizedName) {
                 // Count how many other products have the same name
@@ -1078,6 +1098,7 @@ export function Inventory() {
                             <Package className="w-[18px] h-[18px]" />
                             Categorías
                         </button>
+                        {/* BOTÓN DESACTIVADO A PEDIDO DEL USUARIO (Se consolidó el flujo de Diccionario vía N8N y Google Sheets)
                         <button
                             onClick={() => {
                                 sessionStorage.removeItem('hasAutoTranslated')
@@ -1090,6 +1111,7 @@ export function Inventory() {
                             <span className="text-sm">🌐</span>
                             Traducir Todo
                         </button>
+                        */}
                     </div>
                 </div>
 

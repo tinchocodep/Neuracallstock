@@ -459,7 +459,8 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
     const [hasSecondInvoice, setHasSecondInvoice] = useState(false)
     const [uploadingStep, setUploadingStep] = useState(null) // null | 'invoice1' | 'invoice2' | 'done'
 
-    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoice'
+    // Endpoint final de producción (NUEVO WORKFLOW)
+    const N8N_URL = 'https://n8n.neuracall.net/webhook/LecturaDeInvoiceUltimate'
 
     // Resolve company_id — fallback fetch if not on dispatch object
     const resolveCompanyId = async () => {
@@ -1009,7 +1010,12 @@ function CostsForm({ dispatch, onBack, onReset }) {
                             Cerrar ✕
                         </button>
                     </div>
-                    <ProductReviewTable products={reviewProducts} />
+                    <ProductReviewTable 
+                        products={reviewProducts} 
+                        onProductUpdated={(id, newName) => {
+                            setReviewProducts(prev => prev.map(p => p.id === id ? { ...p, name: newName } : p))
+                        }}
+                    />
                 </div>
             )}
 
@@ -1074,10 +1080,14 @@ function sumCostFields(costs) {
 
 // ─────────────────────────────────────────────
 // PRODUCT REVIEW TABLE
-// Responsibility: display-only table of products.
+// Responsibility: editable table of products for translation auto-learning.
 // ─────────────────────────────────────────────
-function ProductReviewTable({ products }) {
+function ProductReviewTable({ products, onProductUpdated }) {
     const [expandedProducts, setExpandedProducts] = useState(new Set())
+    const [editingId, setEditingId] = useState(null)
+    const [editValue, setEditValue] = useState('')
+    const [isSaving, setIsSaving] = useState(false)
+
     const toggleProductExpand = (id) => {
         setExpandedProducts(prev => {
             const next = new Set(prev)
@@ -1085,6 +1095,60 @@ function ProductReviewTable({ products }) {
             else next.add(id)
             return next
         })
+    }
+
+    const startEditing = (p) => {
+        setEditingId(p.id)
+        setEditValue(p.name || '')
+    }
+
+    const saveEdit = async (p) => {
+        if (!editValue || editValue.trim() === '') {
+            setEditingId(null)
+            return
+        }
+        const newName = editValue.trim()
+        if (newName === p.name) {
+            setEditingId(null)
+            return
+        }
+
+        setIsSaving(true)
+        try {
+            // 1. Guardar en Base de Datos para el despacho actual
+            const { error } = await supabase
+                .from('products')
+                .update({ name: newName })
+                .eq('id', p.id)
+            
+            if (error) throw error
+
+            // 2. Notificar N8N del nuevo nombre para auto-aprendizaje (Google Sheets)
+            try {
+                // Endpoint de producción para auto-aprendizaje
+                const N8N_DICTIONARY_WEBHOOK = 'https://n8n.neuracall.net/webhook/aprender-traduccion'
+                await fetch(N8N_DICTIONARY_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        Ingles: p.original_name || newName, 
+                        Español: newName,                 
+                        Categoria: p.category || 'Varios'
+                    })
+                })
+            } catch (err) {
+                console.warn('[Dictionary] N8N Webhook falló o no existe aún.', err)
+            }
+
+            // 3. Actualizar UI
+            if (onProductUpdated) onProductUpdated(p.id, newName)
+            setEditingId(null)
+        } catch (err) {
+            console.error('Error guardando nombre:', err)
+            alert('Error guardando la traducción.')
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const totalQty = products.reduce((s, p) => s + (p.stock || 0), 0)
@@ -1098,7 +1162,7 @@ function ProductReviewTable({ products }) {
                         <th className="px-4 py-2 text-left font-medium">Código</th>
                         <th className="px-4 py-2 text-left font-medium">Marca</th>
                         <th className="px-4 py-2 text-left font-medium">Color</th>
-                        <th className="px-4 py-2 text-left font-medium">Producto</th>
+                        <th className="px-4 py-2 text-left font-medium">Nombre (Click para editar)</th>
                         <th className="px-4 py-2 text-left font-medium">Nombre Original</th>
                         <th className="px-4 py-2 text-right font-medium">Cantidad</th>
                         <th className="px-4 py-2 text-right font-medium">P. Unit USD</th>
@@ -1111,17 +1175,43 @@ function ProductReviewTable({ products }) {
                         const unitUSD = p.unit_price_usd || 0
                         const fobUSD = unitUSD * (p.stock || 0)
                         const hasPrice = (p.price || 0) > 0
+                        const isEditing = editingId === p.id
+
                         return (
                             <tr key={p.id} className={`border-b border-slate-800/50 ${i % 2 === 0 ? 'bg-slate-900/20' : ''}`}>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.sku || '—'}</td>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.brand || '—'}</td>
                                 <td className="px-4 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{p.color || '—'}</td>
-                                <td 
-                                    className={`px-4 py-2.5 max-w-[200px] cursor-pointer transition-colors text-slate-200 ${expandedProducts.has(p.id) ? 'whitespace-normal break-words' : 'truncate'}`}
-                                    onClick={() => toggleProductExpand(p.id)}
-                                    title="Click para ver/ocultar nombre completo"
-                                >
-                                    {p.name}
+                                <td className={`px-4 py-2.5 max-w-[200px] transition-colors ${expandedProducts.has(p.id) ? 'whitespace-normal break-words' : 'truncate'}`}>
+                                    {isEditing ? (
+                                        <div className="flex gap-2 items-center">
+                                            <input 
+                                                type="text" 
+                                                value={editValue} 
+                                                onChange={e => setEditValue(e.target.value)}
+                                                onKeyDown={e => { if(e.key === 'Enter') saveEdit(p); else if (e.key === 'Escape') setEditingId(null) }}
+                                                className="w-full bg-slate-950 border border-cyan-500 rounded px-2 py-1 text-white text-xs outline-none"
+                                                autoFocus
+                                                disabled={isSaving}
+                                            />
+                                            {isSaving ? (
+                                                <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                                            ) : (
+                                                <button onClick={() => saveEdit(p)} className="text-cyan-400 hover:text-cyan-300">
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div 
+                                            className="cursor-pointer text-slate-200 hover:text-cyan-400 font-medium group flex items-center justify-between"
+                                            onClick={() => startEditing(p)}
+                                            onDoubleClick={() => toggleProductExpand(p.id)}
+                                            title="Click para editar traducción. Doble-click expande el texto."
+                                        >
+                                            <span className="truncate group-hover:block">{p.name || '—'}</span>
+                                        </div>
+                                    )}
                                 </td>
                                 <td 
                                     className={`px-4 py-2.5 max-w-[150px] text-[10px] italic cursor-pointer transition-colors text-slate-400 ${expandedProducts.has(p.id) ? 'whitespace-normal break-words' : 'truncate'}`}
