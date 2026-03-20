@@ -523,6 +523,12 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
             const companyId = await resolveCompanyId()
             if (!companyId) { alert('Error: no se pudo obtener la empresa del usuario.'); return }
 
+            // ── Limpieza de Productos Fantasma ──
+            // Si el usuario presiona procesar varias veces con distintos archivos sin refrescar,
+            // barremos los ítems acumulados en este despacho para dejar la caja en cero y evitar que N8N lo sume.
+            console.log(`[InvoiceUpload] Purgando tabla products para dispatch_id: ${dispatch.id}...`)
+            await supabase.from('products').delete().eq('dispatch_id', dispatch.id)
+
             // ── Llamada 1: Invoice principal ──
             setUploadingStep('invoice1')
             const fob1 = await callN8N(file1, 'primary', 1, companyId)
