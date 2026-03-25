@@ -152,7 +152,7 @@ export function Analysis() {
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Análisis y Reportes</h1>
                 <p className="text-slate-500 mb-4 -mt-4">Visualiza el rendimiento de ventas y clientes</p>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center gap-2 text-cyan-500 font-bold mb-4">
                         <Filter className="w-4 h-4" />
                         <h3>Filtros</h3>
@@ -164,7 +164,7 @@ export function Analysis() {
                             <select
                                 value={year}
                                 onChange={(e) => setYear(Number(e.target.value))}
-                                className="bg-slate-950 border border-slate-800 text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
+                                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
                             >
                                 {years.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
@@ -174,7 +174,7 @@ export function Analysis() {
                             <select
                                 value={invoiceType}
                                 onChange={(e) => setInvoiceType(e.target.value)}
-                                className="bg-slate-950 border border-slate-800 text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
+                                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
                             >
                                 <option value="Todas">Todas</option>
                                 <option value="A">Factura A</option>
@@ -186,7 +186,7 @@ export function Analysis() {
                             <select
                                 value={jurisdiction}
                                 onChange={(e) => setJurisdiction(e.target.value)}
-                                className="bg-slate-950 border border-slate-800 text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
+                                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg p-2.5 focus:border-cyan-500 outline-none"
                             >
                                 <option value="Todas">Todas</option>
                                 {availableProvinces.map(p => <option key={p} value={p}>{p}</option>)}
@@ -242,7 +242,7 @@ export function Analysis() {
                     </h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-500 uppercase bg-slate-950 border-b border-slate-800">
+                            <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-4 py-3">#</th>
                                     <th className="px-4 py-3">Cliente</th>
@@ -250,12 +250,12 @@ export function Analysis() {
                                     <th className="px-4 py-3 text-right">Facturas</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800 text-slate-300">
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                                 {topClients.map((client, i) => (
-                                    <tr key={i} className="hover:bg-slate-800/50">
+                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                         <td className="px-4 py-3 text-cyan-500 font-bold">{i + 1}</td>
                                         <td className="px-4 py-3 font-medium">{client.name}</td>
-                                        <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                                        <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 dark:text-white">
                                             {formatCurrency(client.total)}
                                         </td>
                                         <td className="px-4 py-3 text-right">{client.count}</td>
@@ -267,25 +267,25 @@ export function Analysis() {
                 </div>
 
                 {/* Province Stats */}
-                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800">
-                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                         <Map className="w-5 h-5 text-cyan-500" />
                         Análisis por Provincia
                     </h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-500 uppercase bg-slate-950 border-b border-slate-800">
+                            <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-4 py-3">Provincia</th>
                                     <th className="px-4 py-3 text-right">Ventas</th>
                                     <th className="px-4 py-3 text-right">%</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800 text-slate-300">
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                                 {provinceSales.map((prov, i) => (
-                                    <tr key={i} className="hover:bg-slate-800/50">
+                                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                         <td className="px-4 py-3 font-medium">{prov.name}</td>
-                                        <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                                        <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 dark:text-white">
                                             {formatCurrency(prov.value)}
                                         </td>
                                         <td className="px-4 py-3 text-right text-cyan-500">
@@ -300,14 +300,14 @@ export function Analysis() {
             </div>
 
             {/* Monthly Sales */}
-            <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800">
-                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-cyan-500" />
                     Ventas Mensuales {year}
                 </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-950 border-b border-slate-800">
+                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 <th className="px-4 py-3">Mes</th>
                                 <th className="px-4 py-3 text-right">Ventas</th>
@@ -315,11 +315,11 @@ export function Analysis() {
                                 <th className="px-4 py-3 w-1/3">Visual</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                             {monthlySales.map((month, i) => (
-                                <tr key={i} className="hover:bg-slate-800/50">
-                                    <td className="px-4 py-3 text-slate-300 font-medium">{month.name}</td>
-                                    <td className="px-4 py-3 text-right font-bold font-mono text-white">
+                                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-medium">{month.name}</td>
+                                    <td className="px-4 py-3 text-right font-bold font-mono text-slate-900 dark:text-white">
                                         {formatCurrency(month.total)}
                                     </td>
                                     <td className="px-4 py-3 text-right text-slate-400">{month.count}</td>
@@ -339,13 +339,13 @@ export function Analysis() {
             </div>
 
             {/* Invoice History */}
-            <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <FileText className="w-5 h-5 text-cyan-500" />
                         Historial de Facturas
                     </h3>
-                    <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg border border-slate-700 transition-colors">
+                    <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-white text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 transition-colors shadow-sm">
                         <Download className="w-3 h-3" />
                         Exportar
                     </button>
@@ -353,7 +353,7 @@ export function Analysis() {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-950 border-b border-slate-800">
+                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 <th className="px-4 py-3">Fecha</th>
                                 <th className="px-4 py-3">Número</th>
@@ -363,9 +363,9 @@ export function Analysis() {
                                 <th className="px-4 py-3 text-right">CAE</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800 text-slate-300">
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                             {filteredData.map((inv, i) => (
-                                <tr key={i} className="hover:bg-slate-800/50">
+                                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                     <td className="px-4 py-3">{new Date(inv.created_at).toLocaleDateString('es-AR')}</td>
                                     <td className="px-4 py-3 font-mono text-cyan-400">{inv.invoice_number}</td>
                                     <td className="px-4 py-3 text-center">
@@ -377,8 +377,8 @@ export function Analysis() {
                                             {inv.type}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 font-medium text-white">{inv.client?.name}</td>
-                                    <td className="px-4 py-3 text-right font-bold font-mono text-white">
+                                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{inv.client?.name}</td>
+                                    <td className="px-4 py-3 text-right font-bold font-mono text-slate-900 dark:text-white">
                                         {formatCurrency(inv.total)}
                                     </td>
                                     <td className="px-4 py-3 text-right font-mono text-xs text-emerald-500">

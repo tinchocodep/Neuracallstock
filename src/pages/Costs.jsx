@@ -588,7 +588,7 @@ function InvoiceUpload({ dispatch, onNext, onBack }) {
                 {!hasSecondInvoice && !isUploading && (
                     <button
                         onClick={() => setHasSecondInvoice(true)}
-                        className="flex items-center justify-center gap-2 w-full border-2 border-dashed border-slate-700 hover:border-cyan-500/60 rounded-xl py-4 text-slate-500 hover:text-cyan-400 transition-all group text-sm font-medium"
+                        className="flex items-center justify-center gap-2 w-full border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-cyan-500/60 rounded-xl py-4 text-slate-500 hover:text-cyan-500 transition-all group text-sm font-medium"
                     >
                         <FilePlus2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         + Agregar 2da Invoice (opcional)
@@ -656,7 +656,7 @@ function UploadZone({ file, setFile, inputId, label, accent, isProcessing, isWai
     const fileIcon = accent === 'purple' ? 'text-purple-400' : 'text-cyan-400'
 
     return (
-        <div className={`flex flex-col gap-3 p-5 rounded-2xl border-2 ${borderColor} bg-slate-900/40 ${isDisabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div className={`flex flex-col gap-3 p-5 rounded-2xl border-2 ${borderColor} bg-slate-50 dark:bg-slate-900/40 ${isDisabled ? 'opacity-60 pointer-events-none' : ''}`}>
             <div className="flex items-center justify-between">
                 <span className={`text-xs font-bold uppercase tracking-wider ${accentText}`}>{label}</span>
                 {isProcessing && (
@@ -679,7 +679,7 @@ function UploadZone({ file, setFile, inputId, label, accent, isProcessing, isWai
             <label
                 htmlFor={inputId}
                 className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center cursor-pointer transition-all group
-                    ${file ? activeFileBorder : 'border-slate-700 hover:border-slate-500'}`}
+                    ${file ? activeFileBorder : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'}`}
             >
                 {file ? (
                     <>
@@ -689,9 +689,9 @@ function UploadZone({ file, setFile, inputId, label, accent, isProcessing, isWai
                     </>
                 ) : (
                     <>
-                        <Upload className="w-10 h-10 text-slate-600 group-hover:text-slate-400 mb-2 transition-colors" />
-                        <p className="text-slate-400 text-sm font-medium">Seleccionar Excel</p>
-                        <p className="text-slate-600 text-xs mt-0.5">.xlsx · .xls · .csv</p>
+                        <Upload className="w-10 h-10 text-slate-400 group-hover:text-slate-500 dark:text-slate-600 dark:group-hover:text-slate-400 mb-2 transition-colors" />
+                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Seleccionar Excel</p>
+                        <p className="text-slate-400 dark:text-slate-600 text-xs mt-0.5">.xlsx · .xls · .csv</p>
                     </>
                 )}
             </label>
@@ -731,8 +731,10 @@ function CostsForm({ dispatch, onBack, onReset }) {
         ivetra: '',
         tap: '',
         honorarios: '',
-        utilidad: ''
+        utilidad: '',
+        ivaAdicional: ''
     })
+    const [ivaIsPercentage, setIvaIsPercentage] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [loading, setLoading] = useState(true)
     const [reviewProducts, setReviewProducts] = useState(null)
@@ -793,19 +795,23 @@ function CostsForm({ dispatch, onBack, onReset }) {
         if (tipoDeCambio === 0) { alert('Debe ingresar el tipo de cambio primero'); return }
 
         const totalFobARS = costs.totalFob * tipoDeCambio
-        const totalCosts = sumCostFields(costs)
+        const totalCosts = sumCostFields(costs, ivaIsPercentage, totalFobARS)
         const subtotal = totalFobARS + totalCosts
         const utilidadAmount = subtotal * 0.23
         const utilidadRawDigits = Math.round(utilidadAmount * 100).toString()
 
         setCosts(prev => ({ ...prev, utilidad: utilidadRawDigits }))
+        
+        const ivaVal = parseFormattedNumber(costs.ivaAdicional)
+        const ivaAmountDisplay = ivaIsPercentage ? (totalFobARS * (ivaVal / 100)) : ivaVal
 
         alert(
             `Cálculo de Utilidad (23%):\n\n` +
-            `FOB Total ARS: $${totalFobARS.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-            `Costos: $${totalCosts.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-            `Subtotal: $${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n\n` +
-            `✅ Utilidad (23%): $${utilidadAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+            `FOB Total ARS: $${totalFobARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `IVA Calculado: $${ivaAmountDisplay.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `Costos Totales (inc. IVA): $${totalCosts.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `Subtotal: $${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+            `✅ Utilidad (23%): $${utilidadAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         )
     }
 
@@ -839,7 +845,7 @@ function CostsForm({ dispatch, onBack, onReset }) {
 
             // 2. Calculate distribution
             const totalFobARS = costs.totalFob * tipoDeCambio
-            const totalCosts = sumCostFields(costs)
+            const totalCosts = sumCostFields(costs, ivaIsPercentage, totalFobARS)
             const subtotal = totalFobARS + totalCosts
             const utilidadAmount = subtotal * 0.23
             const totalToDistribute = subtotal + utilidadAmount
@@ -847,6 +853,10 @@ function CostsForm({ dispatch, onBack, onReset }) {
             if (costs.totalFob === 0) { alert('El total FOB es 0, no se puede distribuir'); return }
 
             console.log('[CostsForm] Total to distribute (ARS):', totalToDistribute)
+
+            const ivaVal = parseFormattedNumber(costs.ivaAdicional)
+            const ivaAmountDisplay = ivaIsPercentage ? (totalFobARS * (ivaVal / 100)) : ivaVal
+
 
             // 3. Distribute proportionally by product FOB value
             const updatedProducts = products.map(product => {
@@ -877,7 +887,12 @@ function CostsForm({ dispatch, onBack, onReset }) {
             const fobARS = costs.totalFob * tipoDeCambio
             const { error: dispatchErr } = await supabase
                 .from('dispatches')
-                .update({ status: 'completed', total_fob_usd: costs.totalFob, total_fob_ars: fobARS })
+                .update({ 
+                    status: 'completed', 
+                    total_fob_usd: costs.totalFob, 
+                    total_fob_ars: fobARS,
+                    iva_adicional: ivaAmountDisplay
+                })
                 .eq('id', dispatch.id)
             if (dispatchErr) throw dispatchErr
             console.log('[CostsForm] ✅ Dispatch marked as completed')
@@ -886,13 +901,13 @@ function CostsForm({ dispatch, onBack, onReset }) {
                 `✅ Costos distribuidos exitosamente!\n\n` +
                 `Despacho: ${dispatch.dispatch_number}\n` +
                 `${updatedProducts.length} productos actualizados\n\n` +
-                `FOB Total (USD): $${costs.totalFob.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-                `Tipo de Cambio: $${tipoDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-                `FOB Total (ARS): $${totalFobARS.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n\n` +
-                `Costos: $${totalCosts.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-                `Subtotal: $${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n` +
-                `Utilidad (23%): $${utilidadAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}\n\n` +
-                `Total Distribuido: $${totalToDistribute.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                `FOB Total (USD): $${costs.totalFob.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+                `Tipo de Cambio: $${tipoDeCambio.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+                `FOB Total (ARS): $${totalFobARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+                `Costos: $${totalCosts.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+                `Subtotal: $${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+                `Utilidad (23%): $${utilidadAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+                `Total Distribuido: $${totalToDistribute.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             )
 
             if (onReset) onReset()
@@ -1050,6 +1065,46 @@ function CostsForm({ dispatch, onBack, onReset }) {
                 ))}
             </div>
 
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-blue-200 dark:border-blue-900 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                    <label className="text-xs font-bold text-slate-500 uppercase">IVA Adicional</label>
+                    <div className="flex items-center bg-slate-200 dark:bg-slate-800 rounded-lg p-0.5">
+                        <button
+                            onClick={() => setIvaIsPercentage(true)}
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${ivaIsPercentage ? 'bg-white dark:bg-slate-600 shadow text-cyan-600 dark:text-cyan-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            % Porcentaje
+                        </button>
+                        <button
+                            onClick={() => setIvaIsPercentage(false)}
+                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!ivaIsPercentage ? 'bg-white dark:bg-slate-600 shadow text-cyan-600 dark:text-cyan-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            $ Monto Fijo
+                        </button>
+                    </div>
+                </div>
+                <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">
+                        {ivaIsPercentage ? '%' : '$'}
+                    </span>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0,00"
+                        value={formatDecimalInput(costs['ivaAdicional'])}
+                        onChange={(e) => handleCostChange('ivaAdicional', e.target.value)}
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-3 text-slate-900 dark:text-white outline-none focus:border-cyan-500 transition-colors font-mono text-xl text-right"
+                    />
+                </div>
+                {costs['ivaAdicional'] && (
+                    <p className="text-xs text-slate-500 mt-2 text-right font-mono">
+                        {ivaIsPercentage 
+                            ? `Se calculará el ${parseFormattedNumber(costs['ivaAdicional'])}% sobre el FOB Total en ARS`
+                            : `= $${parseFormattedNumber(costs['ivaAdicional']).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    </p>
+                )}
+            </div>
+
             <button onClick={onBack} className="mt-4 text-slate-500 hover:text-white text-sm transition-colors">← Volver</button>
         </div>
     )
@@ -1061,13 +1116,14 @@ function CostsForm({ dispatch, onBack, onReset }) {
 // ─────────────────────────────────────────────
 
 /** Sum all cost fields except tipoDeCambio and utilidad */
-function sumCostFields(costs) {
+function sumCostFields(costs, ivaIsPercentage, totalFobARS) {
     const parseFormattedNumber = (v) => {
         if (!v) return 0
         if (/^\d+$/.test(String(v))) return parseInt(v, 10) / 100
         return parseFloat(String(v).replace(/\./g, '').replace(/,/g, '.')) || 0
     }
-    return (
+    
+    const sumOthers = (
         parseFormattedNumber(costs.flete) +
         parseFormattedNumber(costs.derechos) +
         parseFormattedNumber(costs.estadisticas) +
@@ -1082,6 +1138,11 @@ function sumCostFields(costs) {
         parseFormattedNumber(costs.tap) +
         parseFormattedNumber(costs.honorarios)
     )
+    
+    const ivaVal = parseFormattedNumber(costs.ivaAdicional)
+    const ivaCost = ivaIsPercentage ? (totalFobARS * (ivaVal / 100)) : ivaVal
+    
+    return sumOthers + ivaCost
 }
 
 // ─────────────────────────────────────────────

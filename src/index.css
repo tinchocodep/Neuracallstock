@@ -15,9 +15,8 @@
 
 body {
   background-color: var(--app-bg);
-  color: #e2e8f0;
+  @apply text-slate-900 dark:text-slate-200 font-sans antialiased;
   transition: background-color 0.3s ease;
-  @apply font-sans antialiased;
 }
 
 /* Custom Scrollbar */

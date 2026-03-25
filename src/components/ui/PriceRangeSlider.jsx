@@ -65,10 +65,43 @@ export function PriceRangeSlider({ min = 100000, max = 20000000, value = [100000
     const maxPercent = ((localValue[1] - min) / (max - min)) * 100
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                <DollarSign className="w-4 h-4" />
-                <span className="font-medium">Rango de Precio</span>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="font-medium">Rango de Valor Total</span>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <div className="flex-1">
+                    <label className="text-[10px] text-slate-500 uppercase">Mínimo</label>
+                    <input 
+                        type="number" 
+                        value={localValue[0]} 
+                        onChange={(e) => {
+                            const val = Number(e.target.value)
+                            const newRange = [val, Math.max(val, localValue[1])]
+                            setLocalValue(newRange)
+                            onChange(newRange)
+                        }}
+                        className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs outline-none focus:border-cyan-500"
+                    />
+                </div>
+                <div className="flex-1">
+                    <label className="text-[10px] text-slate-500 uppercase">Máximo</label>
+                    <input 
+                        type="number" 
+                        value={localValue[1]} 
+                        onChange={(e) => {
+                            const val = Number(e.target.value)
+                            const newRange = [Math.min(val, localValue[0]), val]
+                            setLocalValue(newRange)
+                            onChange(newRange)
+                        }}
+                        className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs outline-none focus:border-cyan-500"
+                    />
+                </div>
             </div>
 
             <div className="relative pt-2 pb-6" ref={sliderRef}>

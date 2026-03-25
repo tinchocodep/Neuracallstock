@@ -11,7 +11,9 @@ import {
     X,
     Save,
     Package,
-    Trash2
+    Trash2,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { ColumnFilter } from '../components/ui/ColumnFilter'
@@ -72,11 +74,31 @@ export function Inventory() {
         return saved || 'asc'
     })
 
+    const PREDEFINED_CATEGORIES = [
+        'VARIOS',
+        'LIBRERIA',
+        'INDUMENTARIA',
+        'BAZAR',
+        'FERRETERIA',
+        'ELECTRONICA',
+        'COSMETICO O CUIDADO PERSONAL'
+    ]
+
     // Category Management State
     const [showCategoryModal, setShowCategoryModal] = useState(false)
-    const [categories, setCategories] = useState([])
+    const [categories, setCategories] = useState(() => {
+        const savedCustom = localStorage.getItem('inventory_custom_categories')
+        const customCats = savedCustom ? JSON.parse(savedCustom) : []
+        const merged = [...new Set([...PREDEFINED_CATEGORIES, ...customCats])]
+        return merged.sort().map(c => ({ name: c }))
+    })
     const [editingCategory, setEditingCategory] = useState(null)
     const [newCategoryName, setNewCategoryName] = useState('')
+
+    // Mass Update State
+    const [showMassCategoryModal, setShowMassCategoryModal] = useState(false)
+    const [massCategoryData, setMassCategoryData] = useState({ duplicates: [], newCategory: '', newName: '' })
+    const [selectedDuplicates, setSelectedDuplicates] = useState(new Set())
 
     // Cascading Filter Options
     useEffect(() => {
@@ -94,7 +116,7 @@ export function Inventory() {
                     name: data.names || [],
                     sku: data.skus || [],
                     referencia: data.referencias || [],
-                    category: data.categories || [],
+                    category: categories.length > 0 ? categories.map(c => c.name) : PREDEFINED_CATEGORIES,
                     dispatch_number: data.dispatch_numbers || [],
                     origin: data.origins || [],
                     brand: data.brands || [],
@@ -141,8 +163,14 @@ export function Inventory() {
 
     const handleSort = (column) => {
         if (sortColumn === column) {
-            // Toggle direction if same column
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+            // Toggle direction or reset if already desc
+            if (sortDirection === 'asc') {
+                setSortDirection('desc')
+            } else {
+                // Reset to default sort
+                setSortColumn('name')
+                setSortDirection('asc')
+            }
         } else {
             // New column, default to ascending
             setSortColumn(column)
@@ -235,8 +263,12 @@ export function Inventory() {
             let query = supabase
                 .from('products')
                 .select('*')
-                .order(sortColumn, { ascending: sortDirection === 'asc' })
-                .range(page * pageSize, (page + 1) * pageSize - 1)
+                
+            if (sortColumn !== 'totalValue') {
+                query = query.order(sortColumn, { ascending: sortDirection === 'asc' })
+            }
+            
+            query = query.range(page * pageSize, (page + 1) * pageSize - 1)
 
             if (searchTerm || Object.keys(activeFilters).length > 0) {
                 if (searchTerm) {
@@ -322,6 +354,14 @@ export function Inventory() {
                 filteredData = filteredData.filter(product => {
                     const totalPrice = (product.price || 0) * (product.stock || 0)
                     return totalPrice >= priceRange[0] && totalPrice <= priceRange[1]
+                })
+            }
+
+            if (sortColumn === 'totalValue') {
+                filteredData.sort((a, b) => {
+                    const valA = (a.price || 0) * (a.stock || 0)
+                    const valB = (b.price || 0) * (b.stock || 0)
+                    return sortDirection === 'asc' ? valA - valB : valB - valA
                 })
             }
 
@@ -465,8 +505,20 @@ export function Inventory() {
                 }
             }
 
-            // 🔄 AUTO-NORMALIZE: Convert name to lowercase
-            const normalizedName = newName.toLowerCase()
+            // 🔄 AUTO-NORMALIZE: Format name based on language/translation
+            let normalizedName = newName
+            const isOriginalEnglish = currentProduct?.original_name && newName.toUpperCase() === currentProduct.original_name.toUpperCase()
+            
+            if (isOriginalEnglish) {
+                // If it's the original untranslated name, keep it UPPERCASE
+                normalizedName = newName.toUpperCase()
+            } else {
+                // If it's translated or Spanish, Capitalize Each Word
+                normalizedName = newName.replace(/\w\S*/g, (txt) => {
+                    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+                })
+            }
+            
             const originalCategory = currentProduct?.category
             const newCategory = editValues.category
 
@@ -512,36 +564,22 @@ export function Inventory() {
 
             // Check if category was changed
             if (originalCategory !== newCategory && normalizedName) {
-                // Count how many other products have the same name
-                const { count } = await supabase
+                // Fetch other products with the same name
+                const { data: duplicates } = await supabase
                     .from('products')
-                    .select('*', { count: 'exact', head: true })
+                    .select('id, name, sku, referencia, category, brand, color')
                     .eq('name', normalizedName)
                     .neq('id', id)
+                    .order('category')
 
-                if (count && count > 0) {
-                    // Ask user if they want to apply category change to all products with same name
-                    const applyToAll = window.confirm(
-                        `✨ Encontré ${count} producto${count > 1 ? 's' : ''} más con el nombre "${normalizedName}".\\n\\n` +
-                        `¿Quieres cambiar la categoría de todos a "${newCategory || 'Varios'}"?`
-                    )
-
-                    if (applyToAll) {
-                        // Update all products with the same name
-                        const { error: batchError } = await supabase
-                            .from('products')
-                            .update({ category: newCategory })
-                            .eq('name', normalizedName)
-
-                        if (batchError) {
-                            console.error('Error updating category for duplicates:', batchError)
-                            alert('Error al actualizar categoría de productos duplicados')
-                        } else {
-                            // Refresh products to show updated categories
-                            await fetchProducts()
-                            alert(`✅ ${count} producto${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} exitosamente!`)
-                        }
-                    }
+                if (duplicates && duplicates.length > 0) {
+                    setMassCategoryData({
+                        duplicates,
+                        newCategory: newCategory || 'Varios',
+                        newName: normalizedName
+                    })
+                    setSelectedDuplicates(new Set(duplicates.map(d => d.id))) // Default select all
+                    setShowMassCategoryModal(true)
                 }
             }
 
@@ -586,6 +624,36 @@ export function Inventory() {
             alert('Error al actualizar el producto')
         } finally {
             setSaving(false)
+        }
+    }
+
+    const handleMassCategoryUpdate = async () => {
+        if (selectedDuplicates.size === 0) {
+            setShowMassCategoryModal(false)
+            return
+        }
+
+        setSaving(true)
+        try {
+            const idsToUpdate = Array.from(selectedDuplicates)
+            
+            const { error: batchError } = await supabase
+                .from('products')
+                .update({ category: massCategoryData.newCategory })
+                .in('id', idsToUpdate)
+
+            if (batchError) {
+                console.error('Error updating category for duplicates:', batchError)
+                alert('Error al actualizar categoría de productos duplicados')
+            } else {
+                await fetchProducts()
+                alert(`✅ ${idsToUpdate.length} producto(s) actualizado(s) exitosamente a "${massCategoryData.newCategory}"!`)
+            }
+        } catch (error) {
+            console.error('Error en cambio masivo:', error)
+        } finally {
+            setSaving(false)
+            setShowMassCategoryModal(false)
         }
     }
 
@@ -931,23 +999,16 @@ export function Inventory() {
 
     // ==================== CATEGORY MANAGEMENT ====================
 
+    // Note: PREDEFINED_CATEGORIES moved to component top so it can initialize state
+
     const fetchCategories = async () => {
-        try {
-            // Get unique categories from products
-            const { data, error } = await supabase
-                .from('products')
-                .select('category')
-                .not('category', 'is', null)
-                .order('category')
-
-            if (error) throw error
-
-            // Get unique categories
-            const uniqueCategories = [...new Set(data.map(p => p.category))].filter(Boolean)
-            setCategories(uniqueCategories.map(cat => ({ name: cat })))
-        } catch (error) {
-            console.error('Error fetching categories:', error)
-        }
+        // Now loaded directly from state/localStorage to avoid legacy database pollution.
+        // The user specifically requested filters to be strictly linked to management,
+        // without the "extra" old categories that are still attached to products.
+        const savedCustom = localStorage.getItem('inventory_custom_categories')
+        const customCats = savedCustom ? JSON.parse(savedCustom) : []
+        const merged = [...new Set([...PREDEFINED_CATEGORIES, ...customCats])]
+        setCategories(merged.sort().map(c => ({ name: c })))
     }
 
     const createCategory = async () => {
@@ -964,8 +1025,17 @@ export function Inventory() {
             return
         }
 
-        // Add to local state
-        setCategories([...categories, { name: normalizedName }])
+        // Add to local state and localStorage
+        const savedCustom = localStorage.getItem('inventory_custom_categories')
+        const customCats = savedCustom ? JSON.parse(savedCustom) : []
+        
+        if (!PREDEFINED_CATEGORIES.includes(normalizedName) && !customCats.includes(normalizedName)) {
+            customCats.push(normalizedName)
+            localStorage.setItem('inventory_custom_categories', JSON.stringify(customCats))
+        }
+
+        const newCats = [...categories, { name: normalizedName }].sort((a, b) => a.name.localeCompare(b.name))
+        setCategories(newCats)
         setNewCategoryName('')
         alert(`✅ Categoría "${normalizedName}" creada. Ahora podés asignarla a productos.`)
     }
@@ -1003,10 +1073,24 @@ export function Inventory() {
 
             if (error) throw error
 
-            // Update local state
-            setCategories(categories.map(cat =>
+            // Update local state and localStorage
+            const savedCustom = localStorage.getItem('inventory_custom_categories')
+            let customCats = savedCustom ? JSON.parse(savedCustom) : []
+            
+            // Remove old from custom if it was there, add new
+            if (customCats.includes(oldName)) {
+                customCats = customCats.filter(c => c !== oldName)
+            }
+            if (!PREDEFINED_CATEGORIES.includes(normalizedNewName) && !customCats.includes(normalizedNewName)) {
+                customCats.push(normalizedNewName)
+            }
+            localStorage.setItem('inventory_custom_categories', JSON.stringify(customCats))
+
+            const newCats = categories.map(cat =>
                 cat.name === oldName ? { name: normalizedNewName } : cat
-            ))
+            ).sort((a, b) => a.name.localeCompare(b.name))
+            
+            setCategories(newCats)
             setEditingCategory(null)
             await fetchProducts()
             alert(`✅ Categoría actualizada exitosamente`)
@@ -1051,7 +1135,14 @@ export function Inventory() {
 
             if (error) throw error
 
-            // Update local state
+            // Update local state and localStorage
+            const savedCustom = localStorage.getItem('inventory_custom_categories')
+            if (savedCustom) {
+                let customCats = JSON.parse(savedCustom)
+                customCats = customCats.filter(c => c !== categoryName)
+                localStorage.setItem('inventory_custom_categories', JSON.stringify(customCats))
+            }
+
             setCategories(categories.filter(cat => cat.name !== categoryName))
             await fetchProducts()
             alert(`✅ Categoría eliminada exitosamente`)
@@ -1063,12 +1154,18 @@ export function Inventory() {
         }
     }
 
-    // Load categories when modal opens
+    // Sync category filter options when categories state changes
     useEffect(() => {
-        if (showCategoryModal) {
-            fetchCategories()
-        }
-    }, [showCategoryModal])
+        setFilterOptions(prev => ({
+            ...prev,
+            category: categories.map(c => c.name)
+        }))
+    }, [categories])
+
+    // Load categories on mount
+    useEffect(() => {
+        fetchCategories()
+    }, [])
 
     const displayProducts = products
 
@@ -1178,9 +1275,13 @@ export function Inventory() {
                                                     ? 'text-cyan-500 bg-cyan-500/10'
                                                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                                                     }`}
-                                                title={`Ordenar por producto ${sortColumn === 'name' ? (sortDirection === 'asc' ? '(A-Z)' : '(Z-A)') : ''}`}
+                                                title={`Ordenar por producto`}
                                             >
-                                                <ArrowUpDown className="w-3 h-3" />
+                                                {sortColumn === 'name' ? (
+                                                    sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                                                ) : (
+                                                    <ArrowUpDown className="w-3 h-3 opacity-50" />
+                                                )}
                                             </button>
                                         </div>
                                     </th>
@@ -1226,9 +1327,13 @@ export function Inventory() {
                                                     ? 'text-cyan-500 bg-cyan-500/10'
                                                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                                                     }`}
-                                                title={`Ordenar por referencia ${sortColumn === 'referencia' ? (sortDirection === 'asc' ? '(A-Z)' : '(Z-A)') : ''}`}
+                                                title={`Ordenar por referencia`}
                                             >
-                                                <ArrowUpDown className="w-3 h-3" />
+                                                {sortColumn === 'referencia' ? (
+                                                    sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                                                ) : (
+                                                    <ArrowUpDown className="w-3 h-3 opacity-50" />
+                                                )}
                                             </button>
                                         </div>
                                     </th>
@@ -1259,17 +1364,36 @@ export function Inventory() {
                                             onFilter={handleFilterChange}
                                         />
                                     </th>
-                                    <th className="px-2 py-2 text-right w-[90px] pt-4">PRECIO</th>
+                                    <th className="px-2 py-2 text-right w-[90px] pt-4">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <span>PRECIO</span>
+                                            <button
+                                                onClick={() => handleSort('price')}
+                                                className={`p-1 rounded transition-colors ${sortColumn === 'price'
+                                                    ? 'text-cyan-500 bg-cyan-500/10'
+                                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                                    }`}
+                                                title={`Ordenar por precio`}
+                                            >
+                                                {sortColumn === 'price' ? (
+                                                    sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                                                ) : (
+                                                    <ArrowUpDown className="w-3 h-3 opacity-50" />
+                                                )}
+                                            </button>
+                                        </div>
+                                    </th>
                                     <th className="px-2 py-2 text-center pt-4 w-[60px]" title="Stock Físico Real">STOCK</th>
                                     <th className="px-2 py-2 text-right w-[90px]">
-                                        <div className="relative inline-block">
-                                            <button
-                                                onClick={() => setShowPriceFilter(!showPriceFilter)}
-                                                className="flex items-center gap-1 text-[10px] font-mono hover:text-cyan-500 transition-colors"
-                                            >
-                                                VALOR TOTAL
-                                                <ChevronDown className={`w-3 h-3 transition-transform ${showPriceFilter ? 'rotate-180' : ''}`} />
-                                            </button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <div className="relative inline-block">
+                                                <button
+                                                    onClick={() => setShowPriceFilter(!showPriceFilter)}
+                                                    className="flex items-center gap-1 text-[10px] font-mono hover:text-cyan-500 transition-colors"
+                                                >
+                                                    VALOR TOTAL
+                                                    <ChevronDown className={`w-3 h-3 transition-transform ${showPriceFilter ? 'rotate-180' : ''}`} />
+                                                </button>
                                             {showPriceFilter && (
                                                 <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl z-50 min-w-[320px]">
                                                     <PriceRangeSlider
@@ -1301,6 +1425,21 @@ export function Inventory() {
                                                 </div>
                                             )}
                                         </div>
+                                        <button
+                                            onClick={() => handleSort('totalValue')}
+                                            className={`p-1 rounded transition-colors ${sortColumn === 'totalValue'
+                                                ? 'text-cyan-500 bg-cyan-500/10'
+                                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                                }`}
+                                            title={`Ordenar por valor total`}
+                                        >
+                                            {sortColumn === 'totalValue' ? (
+                                                sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                                            ) : (
+                                                <ArrowUpDown className="w-3 h-3 opacity-50" />
+                                            )}
+                                        </button>
+                                    </div>
                                     </th>
                                     <th className="px-2 py-2 text-center pt-4 w-[80px]">ACCIONES</th>
                                 </tr>
@@ -1399,13 +1538,15 @@ export function Inventory() {
                                         <td className="px-2 py-2">
                                             {editingId === product.id ? (
                                                 <select
-                                                    className="w-full bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-2 py-1 text-[10px] outline-none"
+                                                    className="w-full bg-white dark:bg-slate-900 border border-cyan-500 rounded px-2 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-cyan-500/50"
                                                     value={editValues.category || ''}
                                                     onChange={(e) => handleEditChange('category', e.target.value)}
                                                 >
-                                                    <option value="">Varios</option>
+                                                    <option value="" className="text-slate-400 dark:text-slate-500">Seleccionar...</option>
                                                     {categories.map(cat => (
-                                                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                                                        <option key={cat.name} value={cat.name} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">
+                                                            {cat.name}
+                                                        </option>
                                                     ))}
                                                 </select>
                                             ) : (
@@ -1757,6 +1898,112 @@ export function Inventory() {
                                 className="px-6 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium"
                             >
                                 Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mass Category Update Modal */}
+            {showMassCategoryModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col">
+                        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-6 flex flex-shrink-0 items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Package className="w-6 h-6 text-white" />
+                                <h2 className="text-xl font-bold text-white">Actualización Masiva de Categoría</h2>
+                            </div>
+                            <button
+                                onClick={() => setShowMassCategoryModal(false)}
+                                className="text-white/80 hover:text-white transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1">
+                            <p className="text-slate-600 dark:text-slate-300 mb-4">
+                                Encontramos <strong>{massCategoryData.duplicates.length}</strong> productos más con el nombre "{massCategoryData.newName}".<br/>
+                                Seleccioná a cuáles querés aplicarles la nueva categoría <strong>"{massCategoryData.newCategory}"</strong>.
+                            </p>
+                            
+                            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                        <tr>
+                                            <th className="px-4 py-3 w-12 text-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="w-4 h-4 text-cyan-500 rounded border-slate-300"
+                                                    checked={selectedDuplicates.size === massCategoryData.duplicates.length && massCategoryData.duplicates.length > 0}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedDuplicates(new Set(massCategoryData.duplicates.map(d => d.id)))
+                                                        } else {
+                                                            setSelectedDuplicates(new Set())
+                                                        }
+                                                    }}
+                                                />
+                                            </th>
+                                            <th className="px-4 py-3">REF / SKU</th>
+                                            <th className="px-4 py-3">Marca / Color</th>
+                                            <th className="px-4 py-3">Categoría Actual</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {massCategoryData.duplicates.map((prod) => (
+                                            <tr key={prod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onClick={() => {
+                                                const newSet = new Set(selectedDuplicates)
+                                                if (newSet.has(prod.id)) newSet.delete(prod.id)
+                                                else newSet.add(prod.id)
+                                                setSelectedDuplicates(newSet)
+                                            }}>
+                                                <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 text-cyan-500 rounded border-slate-300"
+                                                        checked={selectedDuplicates.has(prod.id)}
+                                                        onChange={(e) => {
+                                                            const newSet = new Set(selectedDuplicates)
+                                                            if (e.target.checked) newSet.add(prod.id)
+                                                            else newSet.delete(prod.id)
+                                                            setSelectedDuplicates(newSet)
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-mono text-xs">
+                                                    {prod.referencia || '-'} / {prod.sku || '-'}
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                                                    {prod.brand || '-'} / {prod.color || '-'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
+                                                        {prod.category || 'Varios'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 flex-shrink-0">
+                            <button
+                                onClick={() => setShowMassCategoryModal(false)}
+                                disabled={saving}
+                                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-sm font-medium"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleMassCategoryUpdate}
+                                disabled={saving || selectedDuplicates.size === 0}
+                                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                            >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Aplicar a {selectedDuplicates.size} producto(s)
                             </button>
                         </div>
                     </div>
