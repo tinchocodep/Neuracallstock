@@ -1,11 +1,12 @@
 // Force rebuild - Webhooks to production
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Search, Plus, Minus, ShoppingCart, Printer, User, Trash2, FileText, Edit, UserPlus, Globe, Calendar, MapPin } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { supabase } from '../supabaseClient'
 import { ClientModal } from '../components/clients/ClientModal'
 import { QuantityInput } from '../components/ui/QuantityInput'
 import { InvoiceResultModal } from '../components/billing/InvoiceResultModal'
+import { RecentInvoices } from '../components/billing/RecentInvoices'
 import { useCompanyConfig } from '../hooks/useCompanyConfig'
 
 const formatCurrency = (value) => {
@@ -36,8 +37,10 @@ export function Billing() {
 
     // Invoice Submission State
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const isSubmittingRef = useRef(false) // Synchronous guard against double-click
     const [discountPercentage, setDiscountPercentage] = useState(0)
     const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split('T')[0])
+    const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0) // Triggers RecentInvoices refetch
     const [invoiceResult, setInvoiceResult] = useState(null)
 
     // Invoice Types
@@ -205,6 +208,9 @@ export function Billing() {
     }
 
     const handleGenerateInvoice = async () => {
+        // Synchronous double-click guard — useRef is instant, unlike setState
+        if (isSubmittingRef.current) return
+        isSubmittingRef.current = true
         setIsSubmitting(true)
         try {
             // PRODUCCIÓN: Usar webhook de producción (no test)
@@ -497,6 +503,7 @@ export function Billing() {
                 setInvoiceType('B')
                 setSelectedClient(null)
                 setDiscountPercentage(0)
+                setInvoiceRefreshKey(prev => prev + 1) // Trigger history refresh
             } else {
                 throw new Error('Error del servidor')
             }
@@ -504,6 +511,7 @@ export function Billing() {
             console.error(error)
             alert('Hubo un error al generar la factura.')
         } finally {
+            isSubmittingRef.current = false
             setIsSubmitting(false)
         }
     }
@@ -919,6 +927,8 @@ export function Billing() {
                             </div>
                         )}
                     </div>
+
+                    <RecentInvoices refreshKey={invoiceRefreshKey} />
                 </div>
             </div>
 

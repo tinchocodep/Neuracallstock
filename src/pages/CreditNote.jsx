@@ -49,13 +49,16 @@ export function CreditNote() {
             if (fetchError) throw fetchError
 
             const payload = {
-                type: invoice.type.replace('Factura', 'Nota de Crédito'), // Convert "Factura B" to "Nota de Crédito B"
+                type: invoice.type, // "A", "B", "C" — n8n handles NC type internally
+                creditnote: true, // Flag para indicar que es nota de crédito
+                originalInvoiceNumber: invoice.number,
+                originalInvoiceCae: invoice.cae || '',
                 client: {
                     id: invoice.client_id,
                     name: invoice.client_name,
                     cuit: invoice.client_cuit,
                     address: invoice.client_address || '',
-                    taxCondition: invoice.client_tax_condition || 'Responsable Inscripto',
+                    tax_condition: invoice.client_tax_condition || 'Responsable Inscripto',
                     jurisdiction: invoice.client_jurisdiction || 'CABA',
                     email: invoice.client_email || ''
                 },
@@ -68,20 +71,17 @@ export function CreditNote() {
                     sku: item.sku || '',
                     dispatchNumber: item.dispatch_number || '',
                     origin: item.origin || '',
-                    subtotal: Number(item.subtotal) || 0
+                    subtotal: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0)
                 })),
-                subtotal: Number(invoice.subtotal) || 0,
-                discountPercentage: Number(invoice.discount_percentage) || 0,
-                discountAmount: Number(invoice.discount_amount) || 0,
-                netTaxable: Number(invoice.net_taxable) || 0,
-                vatTotal: Number(invoice.vat_total) || 0,
-                total: Number(invoice.total) || 0,
-                originalInvoice: {
-                    number: invoice.number,
-                    cae: invoice.cae,
-                    date: invoice.date
+                totals: {
+                    subtotal: Number(invoice.subtotal) || 0,
+                    discountPercentage: Number(invoice.discount_percentage) || 0,
+                    discountAmount: Number(invoice.discount_amount) || 0,
+                    netTaxable: Number(invoice.net_taxable) || 0,
+                    vatTotal: Number(invoice.vat_total) || 0,
+                    total: Number(invoice.total) || 0
                 },
-                date: new Date().toISOString()
+                date: new Date().toISOString().split('T')[0]
             }
 
             console.log('=== CREDIT NOTE PAYLOAD ===')
@@ -147,29 +147,66 @@ export function CreditNote() {
             }
 
             // Save credit note to database
+            const companyId = invoice.company_id || 'afffddf6-0c49-40e1-bc01-5f44af0b9015'
+
             const { error: dbError } = await supabase
                 .from('invoices')
                 .insert({
                     client_id: invoice.client_id,
-                    client_name: invoice.client_name,
-                    client_cuit: invoice.client_cuit,
-                    type: payload.type,
-                    number: creditNoteId || `CN-${Date.now()}`,
+                    company_id: companyId,
+                    invoice_number: creditNoteId || `CN-${Date.now()}`,
+                    type: 'NC',
                     cae: cae || 'PENDING',
-                    date: payload.date,
-                    subtotal: payload.subtotal,
-                    discount_percentage: payload.discountPercentage,
-                    discount_amount: payload.discountAmount,
-                    net_taxable: payload.netTaxable,
-                    vat_total: payload.vatTotal,
-                    total: payload.total,
+                    date: new Date().toISOString(),
+                    subtotal: -Math.abs(Number(invoice.subtotal) || Number(invoice.total) || 0),
+                    discount_percentage: Number(invoice.discount_percentage) || 0,
+                    discount_amount: Number(invoice.discount_amount) || 0,
+                    net_taxable: -Math.abs(Number(invoice.net_taxable) || Number(invoice.total) || 0),
+                    vat_total: -(Number(invoice.vat_total) || 0),
+                    total: -Math.abs(Number(invoice.total) || 0),
                     pdf_url: finalPdfUrl,
                     original_invoice_id: invoice.id
                 })
-
             if (dbError) {
                 console.error('Database save error:', dbError)
             }
+
+            // Return stock to inventory after successful NC
+            console.log('=== RETURNING STOCK TO INVENTORY ===')
+            for (const item of (fullInvoice.items || [])) {
+                const quantityToReturn = Number(item.quantity) || 0
+                if (quantityToReturn === 0) continue
+
+                const { data: productData, error: fetchError } = await supabase
+                    .from('products')
+                    .select('stock')
+                    .eq('id', item.product_id)
+                    .maybeSingle()
+
+                if (fetchError || !productData) {
+                    console.error(`Error fetching product ${item.product_id}:`, fetchError)
+                    continue
+                }
+
+                const currentStock = Number(productData.stock) || 0
+                const newStock = currentStock + quantityToReturn
+
+                console.log(`Returning ${quantityToReturn} of ${item.product_name}:`, {
+                    currentStock, quantityToReturn, newStock
+                })
+
+                const { error: stockError } = await supabase
+                    .from('products')
+                    .update({ stock: newStock })
+                    .eq('id', item.product_id)
+
+                if (stockError) {
+                    console.error(`Error returning stock for ${item.product_name}:`, stockError)
+                } else {
+                    console.log(`✓ Stock returned for ${item.product_name}`)
+                }
+            }
+            console.log('=== STOCK RETURN COMPLETE ===')
 
             setResult({
                 success: true,
