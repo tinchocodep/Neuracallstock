@@ -740,9 +740,14 @@ export function Billing() {
                                                         <div className="text-white font-bold text-sm line-clamp-1">{prod.name}</div>
                                                         <span className="text-cyan-500 font-mono text-sm ml-2 whitespace-nowrap">{formatCurrency(prod.price)}</span>
                                                     </div>
-                                                    <div className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
+                                                    <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
                                                         <span className="font-mono bg-slate-900 px-1 rounded">{prod.sku}</span>
-                                                        <span className={`${prod.stock < 10 ? 'text-rose-500' : 'text-emerald-500'} font-medium`}>
+                                                        {prod.dispatch_number && (
+                                                            <span className="font-mono bg-amber-900/30 text-amber-400 px-1.5 rounded text-[10px]">
+                                                                Desp: {prod.dispatch_number}
+                                                            </span>
+                                                        )}
+                                                        <span className={`ml-auto ${prod.stock < 10 ? 'text-rose-500' : 'text-emerald-500'} font-medium`}>
                                                             Stock: {prod.stock}
                                                         </span>
                                                     </div>

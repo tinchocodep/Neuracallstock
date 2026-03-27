@@ -222,7 +222,7 @@ export function Inventory() {
 
     // Edit State
     const [editingId, setEditingId] = useState(null)
-    const [editValues, setEditValues] = useState({ name: '', price: '', stock: '', category: '' })
+    const [editValues, setEditValues] = useState({ name: '', sku: '', price: '', stock: '', category: '' })
     const [saving, setSaving] = useState(false)
     const [translating, setTranslating] = useState(false)
 
@@ -399,6 +399,7 @@ export function Inventory() {
         setEditingId(product.id)
         setEditValues({
             name: product.name,
+            sku: product.sku || '',
             price: product.price,
             stock: product.stock,
             category: product.category,
@@ -410,7 +411,7 @@ export function Inventory() {
 
     const cancelEditing = () => {
         setEditingId(null)
-        setEditValues({ name: '', price: '', stock: '', category: '', referencia: '', brand: '', color: '' })
+        setEditValues({ name: '', sku: '', price: '', stock: '', category: '', referencia: '', brand: '', color: '' })
     }
 
     const handleEditChange = (field, value) => {
@@ -525,6 +526,7 @@ export function Inventory() {
             // Always update product, even if stock is 0
             const updates = {
                 name: normalizedName,
+                sku: editValues.sku,
                 price: parseFloat(editValues.price) || 0,
                 stock: newStock,
                 category: newCategory,
@@ -1490,7 +1492,17 @@ export function Inventory() {
                                             )}
                                         </td>
                                         <td className="px-2 py-2 font-mono text-[10px]">
-                                            {product.sku || 'N/A'}
+                                            {editingId === product.id ? (
+                                                <input
+                                                    type="text"
+                                                    className="w-24 bg-slate-100 dark:bg-slate-800 border border-cyan-500 rounded px-1 py-1 outline-none text-slate-900 dark:text-white"
+                                                    value={editValues.sku || ''}
+                                                    onChange={(e) => handleEditChange('sku', e.target.value)}
+                                                    placeholder="Código"
+                                                />
+                                            ) : (
+                                                product.sku || 'N/A'
+                                            )}
                                         </td>
                                         <td className="px-2 py-2 font-mono text-[10px]">
                                             {editingId === product.id ? (
